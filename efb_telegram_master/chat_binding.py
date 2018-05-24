@@ -393,6 +393,7 @@ class ChatBindingManager(LocaleMixin):
             int: The next state
         """
 
+        pattern = re.sub(r'[\(\[\]\)]', '', pattern)
         if not message_id:
             message_id = self.bot.send_message(chat_id, self._("Processing...")).message_id
         self.bot.send_chat_action(chat_id, telegram.ChatAction.TYPING)
