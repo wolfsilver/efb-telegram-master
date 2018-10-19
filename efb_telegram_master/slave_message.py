@@ -249,29 +249,29 @@ class SlaveMessageProcessor(LocaleMixin):
 
         parse_mode = "HTML"
 
-        text = msg.text
+        itext = msg.text
         
         if msg.substitutions:
             ranges = sorted(msg.substitutions.keys())
             text = ""
             prev = 0
             for i in ranges:
-                text += html.escape(text[prev:i[0]])
+                text += html.escape(itext[prev:i[0]])
                 if msg.substitutions[i].is_self:
                     text += '<a href="tg://user?id=%s">' % self.channel.config['admins'][0]
-                    text += html.escape(text[i[0]:i[1]])
+                    text += html.escape(itext[i[0]:i[1]])
                     text += "</a>"
                 else:
-                    text += html.escape(text[i[0]:i[1]])
+                    text += html.escape(itext[i[0]:i[1]])
                 prev = i[1]
-            text += html.escape(text[prev:])
-            text = text
-        elif text:
-            text = html.escape(text)
+            text += html.escape(itext[prev:])
+            itext = text
+        elif itext:
+            itext = html.escape(itext)
 
         if not old_msg_id:
             tg_msg = self.bot.send_message(tg_dest,
-                                           text=text, prefix=msg_template,
+                                           text=itext, prefix=msg_template,
                                            parse_mode=parse_mode,
                                            reply_to_message_id=target_msg_id,
                                            reply_markup=reply_markup)
@@ -279,7 +279,7 @@ class SlaveMessageProcessor(LocaleMixin):
             # Cannot change reply_to_message_id when editing a message
             tg_msg = self.bot.edit_message_text(chat_id=old_msg_id[0],
                                                 message_id=old_msg_id[1],
-                                                text=text, prefix=msg_template,
+                                                text=itext, prefix=msg_template,
                                                 parse_mode=parse_mode,
                                                 reply_markup=reply_markup)
 
