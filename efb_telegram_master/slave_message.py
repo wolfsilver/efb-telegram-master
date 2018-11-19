@@ -181,7 +181,7 @@ class SlaveMessageProcessor(LocaleMixin):
                            reply_markup: Optional[telegram.ReplyMarkup] = None) -> telegram.Message:
         """
         Send message as text to Telegram.
-        
+
         Args:
             msg (EFBMsg): Message
             tg_dest (str): Telegram Chat ID
@@ -250,7 +250,7 @@ class SlaveMessageProcessor(LocaleMixin):
         parse_mode = "HTML"
 
         itext = msg.text
-        
+
         if msg.substitutions:
             ranges = sorted(msg.substitutions.keys())
             text = ""
@@ -483,9 +483,23 @@ class SlaveMessageProcessor(LocaleMixin):
         elif isinstance(status, EFBMessageRemoval):
             self.logger.debug("Received message removal request from channel %s on message %s",
                               status.source_channel, status.message)
+
+            chat_uid = utils.chat_id_to_str(chat=status.message.chat)
+            tg_chat = self.db.get_chat_assoc(slave_uid=chat_uid)
+            if tg_chat:
+                tg_chat = tg_chat[0]
+
+            # self.logger.debug(
+            #     "[%s] The message should deliver to %s", status.message.uid, tg_chat)
+
+            if tg_chat == ETMChat.MUTE_CHAT_ID:
+                self.logger.debug(
+                    "[%s] Sender of the message is muted.", status.message.uid)
+                return
+
             old_msg = self.db.get_msg_log(
                 slave_msg_id=status.message.uid,
-                slave_origin_uid=utils.chat_id_to_str(chat=status.message.chat))
+                slave_origin_uid=chat_uid)
             if old_msg:
                 old_msg_id: Tuple[str, str] = utils.message_id_str_to_id(old_msg.master_msg_id)
                 try:
