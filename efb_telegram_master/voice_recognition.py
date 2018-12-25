@@ -1,11 +1,16 @@
 # coding=utf-8
 
 import base64
+import logging
 import html
 import tempfile
+import mimetypes
+import os
+import magic
+
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, List, IO, TYPE_CHECKING
+from typing import Any, Dict, List, IO, Tuple, TYPE_CHECKING
 
 import pydub
 import requests
@@ -13,6 +18,8 @@ import telegram.ext
 
 from ehforwarderbot import MsgType
 from .locale_mixin import LocaleMixin
+
+from ehforwarderbot.exceptions import EFBMessageError
 
 if TYPE_CHECKING:
     from . import TelegramChannel
@@ -37,6 +44,7 @@ class VoiceRecognitionManager(LocaleMixin):
         """
         self.channel: 'TelegramChannel' = channel
         self.bot: 'TelegramBotManager' = self.channel.bot_manager
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
         self.bot.dispatcher.add_handler(
             telegram.ext.CommandHandler("recog", self.recognize_speech, pass_args=True))
@@ -47,6 +55,46 @@ class VoiceRecognitionManager(LocaleMixin):
             self.voice_engines.append(BingSpeech(self.channel, tokens['bing']))
         if "baidu" in tokens:
             self.voice_engines.append(BaiduSpeech(self.channel, tokens['baidu']))
+
+    def _download_file(self, tg_msg, file_obj, mime=''):
+        """
+        Download media file from telegram platform.
+
+        Args:
+            tg_msg: Telegram message instance
+            file_obj: File object
+            mime: Type of message
+
+        Returns:
+            tuple of str[2]: Full path of the file, MIME type
+        """
+
+
+        size = getattr(file_obj, "file_size", None)
+        file_id = file_obj.file_id
+        if size and size > telegram.constants.MAX_FILESIZE_DOWNLOAD:
+            raise EFBMessageError(
+                self._("Attachment is too large. Maximum is 20 MB. (AT01)"))
+        f = self.bot.get_file(file_id)
+
+        # self.logger.log(99, 'f.file_path[%r]', f.file_path)
+        if not mime:
+            ext = os.path.splitext(f.file_path)[1]
+            mime = mimetypes.guess_type(f.file_path, strict=False)[0]
+        else:
+            ext = mimetypes.guess_extension(mime, strict=False) or ".unknown"
+
+        file = tempfile.NamedTemporaryFile(suffix=ext)
+        full_path = file.name
+        f.download(out=file)
+        file.seek(0)
+
+        mime = getattr(file_obj, "mime_type",
+               mime or magic.from_file(full_path, mime=True))
+        if type(mime) is bytes:
+            mime = mime.decode()
+        # self.logger.log(99, 'mime[%s], full_path[%s]', mime, full_path)
+        return file, mime, os.path.basename(full_path)
 
     def recognize_speech(self, bot, update, args=[]):
         """
@@ -73,7 +121,7 @@ class VoiceRecognitionManager(LocaleMixin):
             return self.bot.reply_error(update, self._("Only voice shorter than 60s "
                                                        "is supported. (RS04)"))
 
-        file, _, _ = self.bot.download_file(update.message, update.message.reply_to_message.voice, MsgType.Audio)
+        file, _, _ = self._download_file(update.message, update.message.reply_to_message.voice)
 
         results = OrderedDict()
         for i in self.voice_engines:
