@@ -50,8 +50,7 @@ class MasterMessageProcessor(LocaleMixin):
         TGMsgType.Video: MsgType.Video,
         TGMsgType.Voice: MsgType.Audio,
         TGMsgType.Location: MsgType.Location,
-        TGMsgType.Venue: MsgType.Location,
-        TGMsgType.Animation: MsgType.Image
+        TGMsgType.Venue: MsgType.Location
     }
 
     def __init__(self, channel: 'TelegramChannel'):
