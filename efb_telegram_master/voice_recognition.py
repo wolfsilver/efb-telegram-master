@@ -21,6 +21,9 @@ from .locale_mixin import LocaleMixin
 
 from ehforwarderbot.exceptions import EFBMessageError
 
+
+# TODO: Isolate voice recognition as middleware.
+
 if TYPE_CHECKING:
     from . import TelegramChannel
     from .bot_manager import TelegramBotManager

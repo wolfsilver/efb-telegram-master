@@ -51,6 +51,7 @@ class MasterMessageProcessor(LocaleMixin):
         TGMsgType.Voice: MsgType.Audio,
         TGMsgType.Location: MsgType.Location,
         TGMsgType.Venue: MsgType.Location,
+        TGMsgType.Animation: MsgType.Image
     }
 
     def __init__(self, channel: 'TelegramChannel'):
@@ -129,7 +130,7 @@ class MasterMessageProcessor(LocaleMixin):
         """
         target: str = None
         target_channel: str = None
-        target_log: self.db.MsgLog = None
+        target_log: 'MsgLog' = None
         # Message ID for logging
         message_id = utils.message_id_to_str(update=update)
 
@@ -167,7 +168,7 @@ class MasterMessageProcessor(LocaleMixin):
                     self.logger.info("[%s], Predefined chat %d.%d with target msg")
                     return self.bot.reply_error(update,
                                                 self._("Message is not found in database. "
-                                                "Please try with another message. (UC07)"))
+                                                       "Please try with another message. (UC07)"))
         elif private_chat:
             if reply_to:
                 destination = self.db.get_msg_log(master_msg_id=utils.message_id_to_str(
@@ -178,7 +179,7 @@ class MasterMessageProcessor(LocaleMixin):
                 else:
                     return self.bot.reply_error(update,
                                                 self._("Message is not found in database. "
-                                                "Please try with another one. (UC03)"))
+                                                       "Please try with another one. (UC03)"))
             else:
                 return self.bot.reply_error(update,
                                             self._("Please reply to an incoming message. (UC04)"))
@@ -193,25 +194,25 @@ class MasterMessageProcessor(LocaleMixin):
                     else:
                         return self.bot.reply_error(update,
                                                     self._("Message is not found in database. "
-                                                    "Please try with another one. (UC05)"))
+                                                           "Please try with another one. (UC05)"))
                 else:
                     return self.bot.reply_error(update,
                                                 self._("This group is linked to multiple remote chats. "
-                                                "Please reply to an incoming message. "
-                                                "To unlink all remote chats, please send /unlink_all . (UC06)"))
+                                                       "Please reply to an incoming message. "
+                                                       "To unlink all remote chats, please send /unlink_all . (UC06)"))
             elif destination:
                 if reply_to:
-                    target_log: self.db.MsgLog = \
+                    target_log: 'MsgLog' = \
                         self.db.get_msg_log(master_msg_id=utils.message_id_to_str(
-                                                               message.reply_to_message.chat.id,
-                                                               message.reply_to_message.message_id))
+                            message.reply_to_message.chat.id,
+                            message.reply_to_message.message_id))
                     if target_log:
                         target = target_log.slave_origin_uid
                         target_channel, target_uid = utils.chat_id_str_to_id(target)
                     else:
                         return self.bot.reply_error(update,
                                                     self._("Message is not found in database. "
-                                                    "Please try with another message. (UC07)"))
+                                                           "Please try with another message. (UC07)"))
             else:
                 return self.bot.reply_error(update,
                                             self._("This group is not linked to any chat. (UC06)"))
@@ -321,7 +322,6 @@ class MasterMessageProcessor(LocaleMixin):
                 m.text = ""
                 self.logger.debug("[%s] Telegram message is a \"Telegram GIF\".", message_id)
                 m.filename = getattr(message.document, "file_name", None) or None
-                m.type = MsgType.Image
                 m.file, m.mime, m.filename, m.path = self._download_gif(message.document)
                 m.mime = message.document.mime_type or m.mime
             elif mtype == TGMsgType.Document:
@@ -333,7 +333,6 @@ class MasterMessageProcessor(LocaleMixin):
                     m.type = MsgType.Image
                     m.file, m.mime, m.filename, m.path = self._download_gif(message.document)
                 else:
-                    m.type = MsgType.File
                     m.file, m.mime, filename, m.path = self._download_file(message.document,
                                                                            message.document.mime_type)
                     m.filename = m.filename or filename
@@ -356,7 +355,8 @@ class MasterMessageProcessor(LocaleMixin):
                                                                          message.voice.mime_type)
             elif mtype == TGMsgType.Location:
                 m.type = MsgType.Location
-                m.text = "Location"
+                # TRANSLATORS: Message body text for location messages.
+                m.text = self._("Location")
                 m.attributes = EFBMsgLocationAttribute(
                     message.location.latitude,
                     message.location.longitude
@@ -393,6 +393,28 @@ class MasterMessageProcessor(LocaleMixin):
                     "slave_message_id": None if m.edit else "%s.%s" % (self.FAIL_FLAG, int(time.time())),
                     "update": m.edit
                 }
+
+                # Store media related information to local database
+                for tg_media_type in ('audio', 'animation', 'document', 'video', 'voice', 'video_note'):
+                    attachment = getattr(message, tg_media_type, None)
+                    if attachment:
+                        msg_log_d.update(media_type=tg_media_type,
+                                         file_id=attachment.file_id,
+                                         mime=attachment.msg_type)
+                        break
+                if not msg_log_d.get('media_type', None):
+                    if getattr(message, 'sticker', None):
+                        msg_log_d.update(
+                            media_type='sticker',
+                            file_id=message.sticker.file_id,
+                            mime='image/webp'
+                        )
+                    elif getattr(message, 'photo', None):
+                        attachment = message.photo[-1]
+                        msg_log_d.update(media_type=tg_media_type,
+                                         file_id=attachment.file_id,
+                                         mime=attachment.msg_type)
+
                 if slave_msg:
                     msg_log_d['slave_message_id'] = slave_msg.uid
                 self.db.add_msg_log(**msg_log_d)
