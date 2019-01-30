@@ -46,11 +46,11 @@ class MasterMessageProcessor(LocaleMixin):
         TGMsgType.Document: MsgType.File,
         TGMsgType.Photo: MsgType.Image,
         TGMsgType.Sticker: MsgType.Sticker,
-        TGMsgType.Animation: MsgType.Animation,
         TGMsgType.Video: MsgType.Video,
         TGMsgType.Voice: MsgType.Audio,
         TGMsgType.Location: MsgType.Location,
-        TGMsgType.Venue: MsgType.Location
+        TGMsgType.Venue: MsgType.Location,
+        TGMsgType.Animation: MsgType.Image
     }
 
     def __init__(self, channel: 'TelegramChannel'):
