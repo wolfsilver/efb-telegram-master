@@ -377,8 +377,8 @@ class MasterMessageProcessor(LocaleMixin):
         except EFBMessageTypeNotSupported as e:
             self.bot.reply_error(update, e.args[0] or self._("Message type is not supported."))
         except EFBOperationNotSupported as e:
-            self.bot.reply_error(update, self._("Message editing is not supported.\n\n{!r}".format(e)))
-        except EFBMessageError as e:
+            self.bot.reply_error(update, self._("Message editing is not supported.\n\n{!s}".format(e)))
+        except Exception as e:
             self.bot.reply_error(update, self._("Message is not sent.\n\n{!r}".format(e)))
         finally:
             if m:
@@ -399,7 +399,7 @@ class MasterMessageProcessor(LocaleMixin):
                     if attachment:
                         msg_log_d.update(media_type=tg_media_type,
                                          file_id=attachment.file_id,
-                                         mime=attachment.msg_type)
+                                         mime=attachment.mime_type)
                         break
                 if not msg_log_d.get('media_type', None):
                     if getattr(message, 'sticker', None):
@@ -412,7 +412,7 @@ class MasterMessageProcessor(LocaleMixin):
                         attachment = message.photo[-1]
                         msg_log_d.update(media_type=tg_media_type,
                                          file_id=attachment.file_id,
-                                         mime=attachment.msg_type)
+                                         mime=attachment.mime_type)
 
                 if slave_msg:
                     msg_log_d['slave_message_id'] = slave_msg.uid
