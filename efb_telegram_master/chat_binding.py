@@ -309,6 +309,9 @@ class ChatBindingManager(LocaleMixin):
                     except KeyError:
                         self.logger.error("slave_chats_pagination with chat list: Chat %s not found.", i)
                         continue
+                    except EFBChatNotFound:
+                        self.logger.error("slave_chats_pagination with chat list: Chat %s not found.", i)
+                        continue
 
                     if chat.match(re_filter):
                         chats.append(chat)
