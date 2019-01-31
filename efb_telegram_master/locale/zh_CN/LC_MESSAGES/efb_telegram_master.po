@@ -478,6 +478,7 @@ msgid "Relink"
 msgstr "重新绑定"
 
 #: efb_telegram_master/chat_binding.py:482
+#: efb_telegram_master/chat_binding.py:489
 msgid "Mute"
 msgstr "免打扰"
 
