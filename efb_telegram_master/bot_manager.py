@@ -14,6 +14,7 @@ from typing import Optional, List, TYPE_CHECKING, Callable
 from .whitelisthandler import WhitelistHandler
 from .locale_handler import LocaleHandler
 from .locale_mixin import LocaleMixin
+
 if TYPE_CHECKING:
     from . import TelegramChannel
 
@@ -63,7 +64,7 @@ class TelegramBotManager(LocaleMixin):
         self.Decorators.enabled = channel.flag('retry_on_error')
 
     @Decorators.retry_on_timeout
-    def send_message(self, *args, prefix: Optional[str]= '', suffix: Optional[str]= '', **kwargs):
+    def send_message(self, *args, prefix: Optional[str] = '', suffix: Optional[str] = '', **kwargs):
         """
         Send text message.
 
@@ -136,7 +137,7 @@ class TelegramBotManager(LocaleMixin):
             self.updater.bot.send_document(kwargs['chat_id'], full_message, filename,
                                            reply_to_message_id=msg.message_id,
                                            caption=self._("Message is truncated due to its length. "
-                                                   "Full message is sent as attachment."))
+                                                          "Full message is sent as attachment."))
             return msg
         else:
             kwargs['text'] = prefix + text + suffix
@@ -151,9 +152,12 @@ class TelegramBotManager(LocaleMixin):
         """
         try:
             return self.updater.bot.send_message(*args, **kwargs)
-        except telegram.error.BadRequest:
-            kwargs.pop("parse_mode")
-            return self.updater.bot.send_message(*args, **kwargs)
+        except telegram.error.BadRequest as e:
+            if e.message.startswith("can't parse entities") and 'parse_mode' in kwargs:
+                kwargs.pop("parse_mode")
+                return self.updater.bot.send_message(*args, **kwargs)
+            else:
+                raise e
 
     def _bot_edit_message_text_fallback(self, *args, **kwargs):
         """
@@ -164,10 +168,18 @@ class TelegramBotManager(LocaleMixin):
         """
         try:
             return self.updater.bot.edit_message_text(*args, **kwargs)
-        except telegram.error.BadRequest:
-            if 'parse_mode' in kwargs:
+        except telegram.error.BadRequest as e:
+            if e.message == "Message can't be edited":
+                kwargs['reply_to_message_id'] = kwargs.pop('message_id')
+                return self.updater.bot.send_message(*args, **kwargs)
+            elif e.message == "message to edit not found":
+                kwargs.pop('message_id')
+                return self.updater.bot.send_message(*args, **kwargs)
+            elif e.message.startswith("can't parse entities") and 'parse_mode' in kwargs:
                 kwargs.pop("parse_mode")
-            return self.updater.bot.edit_message_text(*args, **kwargs)
+                return self.updater.bot.edit_message_text(*args, **kwargs)
+            else:
+                raise e
 
     # @Decorator
     def caption_affix_decorator(fn: Callable):
@@ -176,10 +188,14 @@ class TelegramBotManager(LocaleMixin):
             suffix = kwargs.pop('suffix', '')
             text = kwargs.pop('caption', '')
 
-            is_empty = self._detect_empty_file(args[1], args[0], text, prefix, suffix)
+            file = args[1] if len(args) >= 2 else kwargs.get('file', None)
+            chat = args[0] if len(args) >= 1 else kwargs.get('chat_id', None)
 
-            if is_empty:
-                return is_empty
+            if file:
+                is_empty = self._detect_empty_file(file, chat, text, prefix, suffix)
+
+                if is_empty:
+                    return is_empty
 
             prefix = (prefix and (prefix + "\n")) or prefix
             suffix = (suffix and ("\n" + suffix)) or suffix
@@ -198,6 +214,7 @@ class TelegramBotManager(LocaleMixin):
             else:
                 kwargs['caption'] = prefix + text + suffix
                 return fn(self, *args, **kwargs)
+
         return caption_affix
 
     @Decorators.retry_on_timeout
@@ -342,13 +359,17 @@ class TelegramBotManager(LocaleMixin):
 
     def session_expired(self, bot, update):
         self.edit_message_text(text=self._("Session expired. Please try again. (SE01)"),
-                                   chat_id=update.effective_chat.id,
-                                   message_id=update.effective_message.message_id)
+                               chat_id=update.effective_chat.id,
+                               message_id=update.effective_message.message_id)
 
     @Decorators.retry_on_timeout
     @caption_affix_decorator
     def edit_message_caption(self, *args, **kwargs):
         return self.updater.bot.edit_message_caption(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    def edit_message_media(self, *args, **kwargs):
+        return self.updater.bot.edit_message_media(*args, **kwargs)
 
     def reply_error(self, update, errmsg):
         """

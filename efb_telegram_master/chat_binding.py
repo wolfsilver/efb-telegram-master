@@ -216,6 +216,8 @@ class ChatBindingManager(LocaleMixin):
             states={Flags.SUGGEST_RECIPIENT: [CallbackQueryHandler(self.suggested_recipient)]},
             fallbacks=[CallbackQueryHandler(self.bot.session_expired)],
             per_message=True,
+            per_chat=True,
+            per_user=False
         )
 
         self.bot.dispatcher.add_handler(self.suggestion_handler)
@@ -773,6 +775,8 @@ class ChatBindingManager(LocaleMixin):
         return ConversationHandler.END
 
     def get_chat_from_db(self, channel_id: str, chat_id: str) -> Optional[EFBChat]:
+        if channel_id not in coordinator.slaves:
+            return
         d = self.db.get_slave_chat_info(slave_channel_id=channel_id, slave_chat_uid=chat_id)
         if d:
             chat = EFBChat(coordinator.slaves[channel_id])
@@ -782,10 +786,14 @@ class ChatBindingManager(LocaleMixin):
             chat.chat_type = ChatType(d.slave_chat_type)
             return chat
         else:
-            chat = coordinator.slaves[channel_id].get_chat(chat_id)
-            if chat:
-                self._db_update_slave_chats_cache([chat])
-                return chat
+            try:
+                chat = coordinator.slaves[channel_id].get_chat(chat_id)
+                if chat:
+                    self._db_update_slave_chats_cache([chat])
+                    return chat
+                return None
+            except EFBChatNotFound:
+                return None
 
     def register_suggestions(self, update: telegram.Update, candidates: List[str], chat_id: int, message_id: int):
         storage_id = (chat_id, message_id)
