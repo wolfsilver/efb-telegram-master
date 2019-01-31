@@ -477,6 +477,10 @@ msgstr "\n"
 msgid "Relink"
 msgstr "重新绑定"
 
+#: efb_telegram_master/chat_binding.py:482
+msgid "Mute"
+msgstr "免打扰"
+
 #: efb_telegram_master/chat_binding.py:485
 msgid "Restore"
 msgstr "还原"
