@@ -321,7 +321,6 @@ class MasterMessageProcessor(LocaleMixin):
                 m.text = ""
                 self.logger.debug("[%s] Telegram message is a \"Telegram GIF\".", message_id)
                 m.filename = getattr(message.document, "file_name", None) or None
-                m.type = MsgType.Image
                 m.file, m.mime, m.filename, m.path = self._download_gif(message.document)
                 m.mime = message.document.mime_type or m.mime
             elif mtype == TGMsgType.Document:
@@ -333,7 +332,6 @@ class MasterMessageProcessor(LocaleMixin):
                     m.type = MsgType.Image
                     m.file, m.mime, m.filename, m.path = self._download_gif(message.document)
                 else:
-                    m.type = MsgType.File
                     m.file, m.mime, filename, m.path = self._download_file(message.document,
                                                                            message.document.mime_type)
                     m.filename = m.filename or filename
@@ -412,10 +410,9 @@ class MasterMessageProcessor(LocaleMixin):
                         )
                     elif getattr(message, 'photo', None):
                         attachment = message.photo[-1]
-                        # self.logger.log(99, 'attachment [%r]', attachment.to_dict())
                         msg_log_d.update(media_type=tg_media_type,
                                          file_id=attachment.file_id,
-                                         mime=getattr(attachment, 'mime_type', 'image/webp'))
+                                         mime='image/jpeg')
 
                 if slave_msg:
                     msg_log_d['slave_message_id'] = slave_msg.uid

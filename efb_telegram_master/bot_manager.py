@@ -1,5 +1,5 @@
 # coding=utf-8
-
+import collections
 import io
 import logging
 import os
@@ -31,6 +31,8 @@ class TelegramBotManager(LocaleMixin):
         dispatcher (telegram.ext.Dispatcher): Dispatcher of the updater
     """
 
+    webhook = False
+
     class Decorators:
         logger = logging.getLogger(__name__)
 
@@ -52,12 +54,26 @@ class TelegramBotManager(LocaleMixin):
 
     def __init__(self, channel: 'TelegramChannel'):
         self.channel: 'TelegramChannel' = channel
-        try:
-            self.updater: telegram.ext.Updater = telegram.ext.Updater(self.channel.config['token'], request_kwargs={'read_timeout': 30, 'connect_timeout': 15})    # set TimedOut
-        except (AttributeError, KeyError):
-            raise ValueError(self._("Token is not properly defined."))
+        config = self.channel.config
+
+        req_kwargs = {'read_timeout': 30, 'connect_timeout': 15}
+        if isinstance(config.get('request_kwargs'), collections.abc.Mapping):
+            req_kwargs.update(config.get('request_kwargs'))
+
+        self.updater: telegram.ext.Updater = telegram.ext.Updater(config['token'],
+                                                                  request_kwargs=req_kwargs)
+
+        if isinstance(config.get('webhook'), dict):
+            self.webhook = True
+            webhook_conf = config['webhook']
+            if webhook_conf.get('set_webhook'):
+                set_webhook = webhook_conf['set_webhook']
+                if set_webhook.get('certificate'):
+                    set_webhook['certificate'] = open(set_webhook['certificate'], 'rb')
+                self.updater.bot.set_webhook(**set_webhook)
+
         self.me: telegram.User = self.updater.bot.get_me()
-        self.admins: List[int] = self.channel.config['admins']
+        self.admins: List[int] = config['admins']
         self.dispatcher: telegram.ext.Dispatcher = self.updater.dispatcher
         self.dispatcher.add_handler(WhitelistHandler(self.admins))
         self.dispatcher.add_handler(LocaleHandler(channel))
@@ -105,7 +121,7 @@ class TelegramBotManager(LocaleMixin):
             return self._bot_send_message_fallback(*args, **kwargs)
 
     @Decorators.retry_on_timeout
-    def edit_message_text(self, *args, **kwargs):
+    def edit_message_text(self, *args, prefix='', suffix='', **kwargs):
         """
         Edit text message.
         Takes exactly same parameters as telegram.bot.edit_message_text,
@@ -118,9 +134,7 @@ class TelegramBotManager(LocaleMixin):
         Returns:
             telegram.Message
         """
-        prefix = kwargs.pop('prefix', '')
         prefix = (prefix and (prefix + "\n")) or prefix
-        suffix = kwargs.pop('suffix', '')
         suffix = (suffix and ("\n" + suffix)) or suffix
         text = kwargs.pop('text', '')
         if len(prefix + text + suffix) >= telegram.constants.MAX_MESSAGE_LENGTH:
@@ -395,15 +409,21 @@ class TelegramBotManager(LocaleMixin):
         This method must NOT be blocking.
         """
         # self.updater.start_polling(timeout=10)
-        webhook_url = self.channel.config.get('webhook_url', '')
-        port = self.channel.config.get('port', '')
-        if webhook_url != '':
-            token = self.channel.config['token']
-            if not webhook_url.endswith('/'):
-                webhook_url += '/'
-            webhook_url += token
-            self.updater.start_webhook('127.0.0.1', port, token)
-            self.updater.bot.setWebhook(webhook_url=webhook_url)
+        # webhook_url = self.channel.config.get('webhook_url', '')
+        # port = self.channel.config.get('port', '')
+        # if webhook_url != '':
+        #     token = self.channel.config['token']
+        #     if not webhook_url.endswith('/'):
+        #         webhook_url += '/'
+        #     webhook_url += token
+        #     self.updater.start_webhook('127.0.0.1', port, token)
+        #     self.updater.bot.setWebhook(webhook_url=webhook_url)
+        # else:
+        #     self.updater.start_polling(timeout=10)
+
+        if self.webhook:
+            start_webhook = self.channel.config['webhook']['start_webhook']
+            self.updater.start_webhook(**start_webhook)
         else:
             self.updater.start_polling(timeout=10)
 
