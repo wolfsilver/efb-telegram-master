@@ -357,11 +357,11 @@ class SlaveMessageProcessor(LocaleMixin):
         if msg.path:
             self.logger.debug("[%s] Size of %s is %s.", msg.uid, msg.path, os.stat(msg.path).st_size)
 
-        if not msg.text:
-            if msg.type == MsgType.Image:
-                msg.text = "sent a picture."
-            elif msg.type == MsgType.Sticker:
-                msg.text = "sent a sticker."
+        # if not msg.text:
+        #     if msg.type == MsgType.Image:
+        #         msg.text = "sent a picture."
+        #     elif msg.type == MsgType.Sticker:
+        #         msg.text = "sent a sticker."
         try:
             if old_msg_id:
                 if msg.edit_media:
@@ -470,8 +470,8 @@ class SlaveMessageProcessor(LocaleMixin):
                             target_msg_id: Optional[str] = None,
                             reply_markup: Optional[telegram.ReplyMarkup] = None) -> telegram.Message:
         self.bot.send_chat_action(tg_dest, telegram.ChatAction.UPLOAD_VIDEO)
-        if not msg.text:
-            msg.text = "sent a video."
+        # if not msg.text:
+        #     msg.text = "sent a video."
         try:
             if old_msg_id:
                 if msg.edit_media:
