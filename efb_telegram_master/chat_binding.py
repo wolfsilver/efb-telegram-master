@@ -885,7 +885,7 @@ class ChatBindingManager(LocaleMixin):
             picture.seek(0)
 
             bot.set_chat_photo(tg_chat, pic_resized or picture)
-            update.message.reply_text(self._('Chat information updated.'))
+            # update.message.reply_text(self._('Chat information updated.'))
         except KeyError:
             return self.bot.reply_error(update, self._('Channel linked is not found.'))
         except EFBChatNotFound:
