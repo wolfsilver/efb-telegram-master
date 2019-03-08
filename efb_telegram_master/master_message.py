@@ -183,6 +183,11 @@ class MasterMessageProcessor(LocaleMixin):
                 return self.bot.reply_error(update,
                                             self._("Please reply to an incoming message. (UC04)"))
         else:  # group chat
+            if reply_to:
+                # 回复其他人，不处理
+                if message.reply_to_message.from_user.id != self.bot.me.id:
+                    self.logger.debug("Message is not reply to the bot: %s", message.to_dict())
+                    return
             if multi_slaves:
                 if reply_to:
                     destination = self.db.get_msg_log(master_msg_id=utils.message_id_to_str(
