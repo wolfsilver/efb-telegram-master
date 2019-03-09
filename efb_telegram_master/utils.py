@@ -21,7 +21,8 @@ class ExperimentalFlagsManager(LocaleMixin):
         "network_error_prompt_interval": 100,
         "prevent_message_removal": True,
         "auto_locale": True,
-        'retry_on_error': False,
+        "retry_on_error": False,
+        "send_image_as_file": False,
     }
 
     def __init__(self, channel: 'TelegramChannel'):
@@ -94,7 +95,7 @@ def chat_id_to_str(channel_id: Optional[str] = None, chat_uid: Optional[str] = N
         raise ValueError("channel_id and channel is mutual exclusive.")
 
     if chat:
-        channel_id = chat.channel_id
+        channel_id = chat.module_id
         chat_uid = chat.chat_uid
     if channel:
         channel_id = channel.channel_id
