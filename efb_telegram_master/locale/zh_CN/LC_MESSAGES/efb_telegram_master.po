@@ -457,6 +457,11 @@ msgid "Link"
 msgstr "绑定"
 
 #: efb_telegram_master/chat_binding.py:488
+#: efb_telegram_master/chat_binding.py:495
+msgid "Mute"
+msgstr "免打扰"
+
+#: efb_telegram_master/chat_binding.py:488
 msgid "Unmute"
 msgstr "解除免打扰"
 

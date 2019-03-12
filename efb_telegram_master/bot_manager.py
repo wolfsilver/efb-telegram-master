@@ -408,19 +408,6 @@ class TelegramBotManager(LocaleMixin):
         Poll message from Telegram Bot API. Can be used to extend for web hook.
         This method must NOT be blocking.
         """
-        # self.updater.start_polling(timeout=10)
-        # webhook_url = self.channel.config.get('webhook_url', '')
-        # port = self.channel.config.get('port', '')
-        # if webhook_url != '':
-        #     token = self.channel.config['token']
-        #     if not webhook_url.endswith('/'):
-        #         webhook_url += '/'
-        #     webhook_url += token
-        #     self.updater.start_webhook('127.0.0.1', port, token)
-        #     self.updater.bot.setWebhook(webhook_url=webhook_url)
-        # else:
-        #     self.updater.start_polling(timeout=10)
-
         if self.webhook:
             start_webhook = self.channel.config['webhook']['start_webhook']
             self.updater.start_webhook(**start_webhook)
