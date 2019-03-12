@@ -92,15 +92,11 @@ A sample config file can be as follows:
 
     # List of Telegram User IDs of admins
     # ETM will only process messages and commands from users
-    # listed below. This ID can be obtained from various ways
+    # listed below. This ID can be obtained from various ways 
     # on Telegram.
     admins:
     - 102938475
     - 91827364
-
-    # webhook url
-    webhook_url: "https://xxx.com:443"
-    port: 5000
 
     # Experimental Flags
     # This section can be used to enable experimental functionality.
