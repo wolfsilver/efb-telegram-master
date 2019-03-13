@@ -14,6 +14,7 @@ import telegram.constants
 import telegram.error
 import telegram.ext
 from telegram import Audio
+from PIL import Image
 
 from ehforwarderbot import EFBMsg, EFBStatus, coordinator
 from ehforwarderbot.constants import MsgType, ChatType
@@ -139,7 +140,16 @@ class SlaveMessageProcessor(LocaleMixin):
             elif msg.type == MsgType.Sticker:
                 tg_msg = self.slave_message_image(msg, tg_dest, msg_template, old_msg_id, target_msg_id, reply_markup)
             elif msg.type == MsgType.Image:
-                if self.flag("send_image_as_file"):
+                sendImageAsFile = False
+                try:
+                    pic_img = Image.open(msg.path)
+
+                    if min(pic_img.size) > 2000 or \
+                            max(pic_img.size) / min(pic_img.size) > 4:
+                        sendImageAsFile = True
+                except Exception as e:
+                    pass
+                if self.flag("send_image_as_file") or sendImageAsFile:
                     tg_msg = self.slave_message_file(msg, tg_dest, msg_template, old_msg_id, target_msg_id,
                                                      reply_markup)
                 else:
@@ -400,7 +410,7 @@ class SlaveMessageProcessor(LocaleMixin):
         self.bot.send_chat_action(tg_dest, telegram.ChatAction.UPLOAD_DOCUMENT)
         if not msg.filename:
             file_name = os.path.basename(msg.path)
-            msg.text = "sent a file."
+            # msg.text = "sent a file."
         else:
             file_name = msg.filename
         try:
