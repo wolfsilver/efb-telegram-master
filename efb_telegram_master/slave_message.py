@@ -144,8 +144,9 @@ class SlaveMessageProcessor(LocaleMixin):
                 try:
                     pic_img = Image.open(msg.path)
 
-                    if min(pic_img.size) > 2000 or \
-                            max(pic_img.size) / min(pic_img.size) > 4:
+                    if min(pic_img.size) > 2000:
+                        sendImageAsFile = True
+                    elif max(pic_img.size) > 1500 and max(pic_img.size) / min(pic_img.size) > 4:
                         sendImageAsFile = True
                 except Exception as e:
                     pass
