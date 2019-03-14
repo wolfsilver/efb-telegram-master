@@ -22,6 +22,8 @@ class ExperimentalFlagsManager(LocaleMixin):
         "prevent_message_removal": True,
         "auto_locale": True,
         "retry_on_error": False,
+        "img_max_size": 1600,
+        "img_size_ratio": 3.5,
         "send_image_as_file": False,
     }
 
