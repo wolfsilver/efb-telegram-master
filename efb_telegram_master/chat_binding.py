@@ -869,7 +869,7 @@ class ChatBindingManager(LocaleMixin):
             chat = ETMChat(chat=channel.get_chat(chat_uid), db=self.db)
             bot.set_chat_title(tg_chat, chat.chat_title.replace('💬👤 ', '').replace('💬👥 ', ''))
 
-            # 将微信群组成员设置为tg群组描述
+            # 将微信群组成员设置为tg群组简介
             if len(chat.members) > 0:
                 description = '群组成员：'
                 for index in range(len(chat.members)):
@@ -881,6 +881,8 @@ class ChatBindingManager(LocaleMixin):
                 if len(description) > 255:
                     description = description[0:250] + '...'
                 bot.set_chat_description(tg_chat, description)
+            else:
+                bot.set_chat_description(tg_chat, '')
 
             picture = channel.get_chat_picture(chat)
             if not picture:
