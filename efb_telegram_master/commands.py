@@ -129,7 +129,7 @@ class CommandsManager(LocaleMixin):
         """
         msg = self._("<i>Click the link next to the name for usage.</i>\n")
         for n, i in enumerate(self.modules_list):
-            msg += "\n\n<b>%s %s (%s)</b>" % (i.channel_emoji, i.module_name, i.module_id)
+            msg += "\n\n<b>%s %s (%s)</b>" % (i.channel_emoji, i.channel_name, i.channel_id)
             extra_fns = i.get_extra_functions()
             if extra_fns:
                 for j in extra_fns:
@@ -151,7 +151,7 @@ class CommandsManager(LocaleMixin):
 
         command = getattr(channel, groupdict['command'])
 
-        msg = "<b>%s %s (%s)</b>" % (channel.channel_emoji, channel.module_name, channel.module_id)
+        msg = "<b>%s %s (%s)</b>" % (channel.channel_emoji, channel.channel_name, channel.channel_id)
 
         fn_name = "/%s_%s" % (groupdict['id'], groupdict['command'])
         msg += "\n\n%s <b>(%s)</b>\n%s" % (
