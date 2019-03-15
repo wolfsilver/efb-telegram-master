@@ -867,7 +867,8 @@ class ChatBindingManager(LocaleMixin):
             channel_id, chat_uid = utils.chat_id_str_to_id(chats[0])
             channel = coordinator.slaves[channel_id]
             chat = ETMChat(chat=channel.get_chat(chat_uid), db=self.db)
-            bot.set_chat_title(tg_chat, chat.chat_title.replace('💬👤 ', '').replace('💬👥 ', '').replace('💬💻 ', ''))
+            # bot.set_chat_title(tg_chat, chat.chat_title.replace('💬👤 ', '').replace('💬👥 ', '').replace('💬💻 ', ''))
+            bot.set_chat_title(tg_chat, re.sub('💬. ', '', chat.chat_title))
 
             # 将微信群组成员设置为tg群组简介
             description = ''
