@@ -870,6 +870,7 @@ class ChatBindingManager(LocaleMixin):
             bot.set_chat_title(tg_chat, chat.chat_title.replace('💬👤 ', '').replace('💬👥 ', ''))
 
             # 将微信群组成员设置为tg群组简介
+            description = ''
             if len(chat.members) > 0:
                 description = '群组成员：'
                 for index in range(len(chat.members)):
@@ -880,9 +881,11 @@ class ChatBindingManager(LocaleMixin):
                 # 1-255 characters
                 if len(description) > 255:
                     description = description[0:250] + '...'
+
+            try:
                 bot.set_chat_description(tg_chat, description)
-            else:
-                bot.set_chat_description(tg_chat, '')
+            except Exception as e:          # 描述未更新异常
+                pass
 
             picture = channel.get_chat_picture(chat)
             if not picture:
