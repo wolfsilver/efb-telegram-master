@@ -143,10 +143,15 @@ class SlaveMessageProcessor(LocaleMixin):
                 sendImageAsFile = False
                 try:
                     pic_img = Image.open(msg.path)
+                    max_size = max(pic_img.size)
+                    min_size = min(pic_img.size)
+                    img_ratio = max_size / min_size
 
-                    if min(pic_img.size) > self.flag("img_max_size"):
+                    if min_size > self.flag("img_min_size"):
                         sendImageAsFile = True
-                    elif max(pic_img.size) > self.flag("img_max_size") and max(pic_img.size) / min(pic_img.size) > self.flag("img_size_ratio"):
+                    elif max_size > self.flag("img_max_size") and img_ratio > self.flag("img_size_ratio"):
+                        sendImageAsFile = True
+                    elif img_ratio >= self.flag("img_size_max_ratio"):
                         sendImageAsFile = True
                 except Exception as e:
                     pass
