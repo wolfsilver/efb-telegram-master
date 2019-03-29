@@ -16,7 +16,7 @@ import telegram.ext
 from telegram import Audio
 from PIL import Image
 
-from ehforwarderbot import EFBMsg, EFBStatus, coordinator
+from ehforwarderbot import EFBMsg, EFBStatus, coordinator, EFBChat
 from ehforwarderbot.constants import MsgType, ChatType
 from ehforwarderbot.exceptions import EFBMessageError
 from ehforwarderbot.message import EFBMsgLinkAttribute, EFBMsgLocationAttribute, EFBMsgCommand
@@ -227,7 +227,7 @@ class SlaveMessageProcessor(LocaleMixin):
             self.logger.debug("[%s] Message inserted/updated to the database.", xid)
         except telegram.error.ChatMigrated as e:
             self.logger.debug("telegram.error ChatMigrated[%s]", e)
-            if msg.author.chat_uid != '__self__':
+            if msg.author.chat_uid != EFBChat.SELF_ID:
                 self.db.add_chat_assoc(master_uid=utils.chat_id_to_str(self.channel.channel_id, e.new_chat_id),
                                    slave_uid=utils.chat_id_to_str(msg.author.module_id, msg.author.chat_uid),
                                    multiple_slave=self.channel.flag("multiple_slave_chats"))
