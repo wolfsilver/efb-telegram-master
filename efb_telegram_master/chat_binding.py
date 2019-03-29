@@ -873,7 +873,7 @@ class ChatBindingManager(LocaleMixin):
             # 将微信群组成员设置为tg群组简介
             description = ''
             if len(chat.members) > 0:
-                description = '群组成员：'
+                description = '群组成员[%s]：' % len(chat.members)
                 for index in range(len(chat.members)):
                     if index == 0:
                         description += chat.members[index].chat_name
