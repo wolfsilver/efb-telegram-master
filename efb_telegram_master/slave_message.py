@@ -228,9 +228,14 @@ class SlaveMessageProcessor(LocaleMixin):
         except telegram.error.ChatMigrated as e:
             self.logger.debug("telegram.error ChatMigrated[%s]", e)
             if msg.author.chat_uid != EFBChat.SELF_ID:
-                self.db.add_chat_assoc(master_uid=utils.chat_id_to_str(self.channel.channel_id, e.new_chat_id),
-                                   slave_uid=utils.chat_id_to_str(msg.author.module_id, msg.author.chat_uid),
+                master_uid = utils.chat_id_to_str(self.channel.channel_id, e.new_chat_id)
+                slave_uid = utils.chat_id_to_str(msg.author.module_id, msg.author.chat_uid)
+                if not msg.author.is_chat:
+                    slave_uid = utils.chat_id_to_str(msg.chat.module_id, msg.chat.chat_uid)
+
+                self.db.add_chat_assoc(master_uid=master_uid, slave_uid=slave_uid,
                                    multiple_slave=self.channel.flag("multiple_slave_chats"))
+
                 self.send_message(msg)
         except Exception as e:
             self.logger.error("[%s] Error occurred while processing message from slave channel.\nMessage: %s\n%s\n%s",
