@@ -219,6 +219,9 @@ class DatabaseManager:
         file_id = kwargs.get('file_id', None)
         mime = kwargs.get('mime', None)
         update = kwargs.get('update', False)
+        if not slave_message_id:
+            self.logger.debug("slave_message_id is None. DONOT add to msg log [%s]", kwargs)
+            return
         if update:
             msg_log = self.MsgLog.get(self.MsgLog.master_msg_id == master_msg_id)
             msg_log.text = text or msg_log.text
