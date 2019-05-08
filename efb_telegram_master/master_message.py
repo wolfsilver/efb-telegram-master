@@ -5,7 +5,9 @@ import mimetypes
 import os
 import tempfile
 import threading
+import subprocess
 from typing import Tuple, IO, Optional, TYPE_CHECKING
+
 
 import magic
 import telegram
@@ -21,6 +23,8 @@ from ehforwarderbot.exceptions import EFBMessageTypeNotSupported, EFBChatNotFoun
     EFBMessageError, EFBMessageNotFound, EFBOperationNotSupported
 from ehforwarderbot.message import EFBMsgLocationAttribute
 from ehforwarderbot.status import EFBMessageRemoval
+from ehforwarderbot.channel import EFBChannel
+
 from . import utils
 from .msg_type import get_msg_type, TGMsgType
 from .locale_mixin import LocaleMixin
@@ -50,7 +54,8 @@ class MasterMessageProcessor(LocaleMixin):
         TGMsgType.Voice: MsgType.Audio,
         TGMsgType.Location: MsgType.Location,
         TGMsgType.Venue: MsgType.Location,
-        TGMsgType.Animation: MsgType.Image
+        TGMsgType.Animation: MsgType.Image,
+        TGMsgType.Contact: MsgType.Text
     }
 
     def __init__(self, channel: 'TelegramChannel'):
@@ -326,7 +331,7 @@ class MasterMessageProcessor(LocaleMixin):
                 m.text = ""
                 self.logger.debug("[%s] Telegram message is a \"Telegram GIF\".", message_id)
                 m.filename = getattr(message.document, "file_name", None) or None
-                m.file, m.mime, m.filename, m.path = self._download_gif(message.document)
+                m.file, m.mime, m.filename, m.path = self._download_gif(message.document, channel)
                 m.mime = message.document.mime_type or m.mime
             elif mtype == TGMsgType.Document:
                 m.text = msg_md_caption
@@ -342,23 +347,19 @@ class MasterMessageProcessor(LocaleMixin):
                     m.filename = m.filename or filename
                 m.mime = message.document.mime_type or m.mime
             elif mtype == TGMsgType.Video:
-                m.type = MsgType.Video
                 m.text = msg_md_caption
                 m.file, m.mime, m.filename, m.path = self._download_file(message.video,
                                                                          message.video.mime_type)
             elif mtype == TGMsgType.Audio:
-                m.type = MsgType.Audio
                 m.text = "%s - %s\n%s" % (
                     message.audio.title, message.audio.performer, msg_md_caption)
                 m.file, m.mime, m.filename, m.path = self._download_file(message.audio,
                                                                          message.audio.mime_type)
             elif mtype == TGMsgType.Voice:
-                m.type = MsgType.Audio
                 m.text = msg_md_caption
                 m.file, m.mime, m.filename, m.path = self._download_file(message.voice,
                                                                          message.voice.mime_type)
             elif mtype == TGMsgType.Location:
-                m.type = MsgType.Location
                 # TRANSLATORS: Message body text for location messages.
                 m.text = self._("Location")
                 m.attributes = EFBMsgLocationAttribute(
@@ -366,11 +367,15 @@ class MasterMessageProcessor(LocaleMixin):
                     message.location.longitude
                 )
             elif mtype == TGMsgType.Venue:
-                m.type = MsgType.Location
                 m.text = message.location.title + "\n" + message.location.adderss
                 m.attributes = EFBMsgLocationAttribute(
                     message.venue.location.latitude,
                     message.venue.location.longitude
+                )
+            elif mtype == TGMsgType.Contact:
+                contact: telegram.Contact = message.contact
+                m.text = self._("Shared a contact: {first_name} {last_name}\n{phone_number}").format(
+                    first_name=contact.first_name, last_name=contact.last_name, phone_number=contact.phone_number
                 )
             else:
                 raise EFBMessageTypeNotSupported(self._("Message type {0} is not supported.").format(mtype))
@@ -459,12 +464,13 @@ class MasterMessageProcessor(LocaleMixin):
             mime = mime.decode()
         return file, mime, os.path.basename(full_path), full_path
 
-    def _download_gif(self, file: telegram.File) -> Tuple[IO[bytes], str, str, str]:
+    def _download_gif(self, file: telegram.File, channel_id: str = "") -> Tuple[IO[bytes], str, str, str]:
         """
         Download and convert GIF image.
 
         Args:
             file: Telegram File object
+            channel_id: Destination channel ID of the message
 
         Returns:
             Tuple[IO[bytes], str, str, str]:
@@ -472,7 +478,18 @@ class MasterMessageProcessor(LocaleMixin):
         """
         file, _, filename, path = self._download_file(file, 'video/mpeg')
         gif_file = tempfile.NamedTemporaryFile(suffix='.gif')
-        VideoFileClip(path).write_gif(gif_file.name, program="ffmpeg")
+        v = VideoFileClip(path)
+        self.logger.info("Convert Telegram MP4 to GIF from "
+                         "channel %s with size %s", channel_id, v.size)
+        if channel_id == "blueset.wechat" and v.size[0] > 600:
+            # Workaround: Compress GIF for slave channel `blueset.wechat`
+            # TODO: Move this logic to `blueset.wechat` in the future
+            subprocess.Popen(
+                ["ffmpeg", "-y", "-i", path, '-vf', "scale=600:-2", gif_file.name], 
+                bufsize=0
+            ).wait()
+        else:
+            v.write_gif(gif_file.name, program="ffmpeg")
         file.close()
         gif_file.seek(0)
         return gif_file, "image/gif", os.path.basename(gif_file.name), gif_file.name

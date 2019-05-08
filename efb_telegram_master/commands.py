@@ -1,5 +1,5 @@
 # coding=utf-8
-
+import html
 from typing import Tuple, Dict, TYPE_CHECKING, List, Any, Union
 
 from telegram import Message, Update
@@ -128,13 +128,33 @@ class CommandsManager(LocaleMixin):
             update: Message update
         """
         msg = self._("<i>Click the link next to the name for usage.</i>\n")
-        for n, i in enumerate(self.modules_list):
-            msg += "\n\n<b>%s %s (%s)</b>" % (i.channel_emoji, i.channel_name, i.channel_id)
+        for idx, i in enumerate(self.modules_list):
+            if isinstance(i, EFBChannel):
+                msg += "\n\n<b>{0} {1}".format(
+                    html.escape(i.channel_emoji),
+                    html.escape(i.module_name))
+                if i.instance_id:
+                    msg += " ({})".format(html.escape(i.instance_id))
+                msg += "</b>"
+
+            elif isinstance(i, EFBMiddleware):
+                msg += "\n\n<b>{} ({})</b>".format(
+                    html.escape(i.middleware_name),
+                    html.escape(i.middleware_id)
+                )
+            else:
+                # This should not occur as modules_list shall
+                # consist of only EFBChannel and EFBMiddleware instances
+                continue
             extra_fns = i.get_extra_functions()
             if extra_fns:
-                for j in extra_fns:
-                    fn_name = "/h_%s_%s" % (n, j)
-                    msg += "\n- <b>%s</b> %s" % (extra_fns[j].name, fn_name)
+                for fn in extra_fns:
+                    fn_name = f"/h_{idx}_{fn}"
+                    # noinspection PyUnresolvedReferences
+                    msg += "\n- <b>{}</b> {}".format(
+                        html.escape(extra_fns[fn].name),
+                        html.escape(fn_name)
+                    )
             else:
                 msg += "\n" + self._("No command found.")
         self.bot.send_message(update.effective_chat.id, msg, parse_mode="HTML")
@@ -151,11 +171,18 @@ class CommandsManager(LocaleMixin):
 
         command = getattr(channel, groupdict['command'])
 
-        msg = "<b>%s %s (%s)</b>" % (channel.channel_emoji, channel.channel_name, channel.channel_id)
+        msg = "<b>{0} {1}".format(
+            html.escape(channel.channel_emoji),
+            html.escape(channel.module_name))
+        if channel.instance_id:
+            msg += " ({})".format(html.escape(channel.instance_id))
+        msg += "</b>"
 
         fn_name = "/%s_%s" % (groupdict['id'], groupdict['command'])
-        msg += "\n\n%s <b>(%s)</b>\n%s" % (
-            fn_name, command.name, command.desc.format(function_name=fn_name))
+        msg += "\n\n{} <b>({})</b>\n{}".format(
+            html.escape(fn_name),
+            html.escape(command.name),
+            html.escape(command.desc.format(function_name=fn_name)))
         self.bot.send_message(update.effective_chat.id, msg, parse_mode="HTML")
 
     def extra_call(self, bot, update, groupdict: Dict[str, str] = None):

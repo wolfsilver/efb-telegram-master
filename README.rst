@@ -9,6 +9,7 @@ EFB Telegram Master Channel (ETM)
    :target: https://crowdin.com/project/ehforwarderbot/
 
 `README in other languages`_.
+
 .. _README in other languages: ./readme_translations
 .. TRANSLATORS: change the URL on previous line as "." (without quotations).
 
@@ -51,6 +52,19 @@ Getting Started
    ``~/.ehforwarderbot/profiles/default`` **)**
 
 3. Configure the channel (described as follows)
+
+Alternative installation methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ETM also has other alternative installation methods
+contributed by the community, including:
+
+- `AUR package`_ maintained by KeLiu_ (``python-efb-telegram-master-git``)
+- Other `installation scripts and containers (e.g. Docker)`_
+
+.. _KeLiu: https://github.com/specter119
+.. _AUR package: https://aur.archlinux.org/packages/python-efb-telegram-master-git
+.. _installation scripts and containers (e.g. Docker): https://github.com/blueset/ehForwarderBot/wiki/Channels-Repository#scripts-and-containers-eg-docker
 
 Configuration
 -------------
@@ -167,14 +181,14 @@ to BotFather for a command list::
    *You can also choose to unlink or relink a linked chat from this
    menu.*
 4. Tap “Start” at the bottom of your screen, and you should see a
-   success message: “Chat associated.”
+   success message: “Chat linked.”
 
 .. note::
 
     You may introduce non-ETM admin users to the group, however, they:
 
--  Can read all messages send from the related remote chat;
--  May NOT send message on your behalf.
+    -  Can read all messages send from the related remote chat;
+    -  May NOT send message on your behalf.
 
 If the “Link” button doesn’t work for you, you may try the “Manual
 Link/Relink” button. To manually link a remote chat:
@@ -187,64 +201,8 @@ Link/Relink” button. To manually link a remote chat:
 Also, you can send ``/unlink_all`` to a group to unlink all remote chats
 from it.
 
-Send a message
-~~~~~~~~~~~~~~
-
-Send to a linked chat
-^^^^^^^^^^^^^^^^^^^^^
-
-You can send message as you do in a normal Telegram chat.
-
-What is supported:
-
--  Send/forward message in all supported types
--  Direct reply to a message
--  Send message with inline bot in supported types
-
-What is NOT supported:
-
--  @ reference
--  Markdown/HTML formatting
--  Messages with unsupported types
-
-Send to a non-linked chat
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To send a message to a non-linked chat, you should “direct reply” to a
-message or a “chat head” that is sent from your recipient. Those
-messages should appear only in the bot conversation.
-
-In a non-linked chat, direct reply will not be delivered to the remote
-channel, everything else is supported as it does in a linked chat.
-
-Edit and delete message
-^^^^^^^^^^^^^^^^^^^^^^^
-
-In EFB v2, the framework added support to message editing and removal,
-and so does ETM. However, due to the limitation of Telegram Bot API,
-although you may have selected “Delete from the bot”, or “Delete from
-everyone” while deleting messages, the bot would not know anything about
-it. Therefore, if you want your message to be removed from a remote
-chat, edit your message and prepend it with rm\` (it’s R, M, and ~\`,
-not single quote), so that the bot knows that you want to remote the
-message.
-
-Please also notice that some channels may not support editing and/or
-deleting messages depends on their implementations.
-
-``/chat``: Chat head
-^^^^^^^^^^^^^^^^^^^^
-
-If you want to send a message to a non-linked chat which has not yet
-sent you a message, you can ask ETM to generate a “chat head”. Chat head
-works similarly to an incoming message, you can reply to it to send
-messages to your recipient.
-
-Send ``/chat`` to the bot, and choose a chat from the list. When you see
-“Reply to this message to send to from ”, it’s ready to go.
-
 Advanced feature: Filtering
-'''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you have just too much chats, and being too tired for keep tapping
 ``Next >``, or maybe you just want to find a way to filter out what
@@ -282,7 +240,6 @@ E.g.: ``/chat Eana`` will give you all chats has the word “Eana”.
     respectively.
 
 
-
 Examples:
 
 -  Look for all WeChat groups: ``Channel: WeChat.*Type: Group``
@@ -290,8 +247,71 @@ Examples:
 -  Look for all entries contain “John” and “Jonny” in any order:
    ``(?=.*John)(?=.*Jonny)"``
 
-``/extra``: External commands from slave channels (“additonal features”)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Send a message
+~~~~~~~~~~~~~~
+
+Send to a linked chat
+^^^^^^^^^^^^^^^^^^^^^
+
+You can send message as you do in a normal Telegram chat.
+
+What is supported:
+
+-  Send/forward message in all supported types
+-  Direct reply to a message
+-  Send message with inline bot in supported types
+
+What is NOT supported:
+
+-  @ reference
+-  Markdown/HTML formatting
+-  Messages with unsupported types
+
+Send to a non-linked chat
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To send a message to a non-linked chat, you should “direct reply” to a
+message or a “chat head” that is sent from your recipient. Those
+messages should appear only in the bot conversation.
+
+In a non-linked chat, direct reply will not be delivered to the remote
+channel, everything else is supported as it does in a linked chat.
+
+Edit and delete message
+^^^^^^^^^^^^^^^^^^^^^^^
+
+In EFB v2, the framework added support to message editing and removal,
+and so does ETM. However, due to the limitation of Telegram Bot API,
+although you may have selected “Delete for the bot”, or “Delete for
+everyone” while deleting messages, the bot would not know anything about
+it. Therefore, if you want your message to be removed from a remote
+chat, edit your message and prepend it with rm\` (it’s R, M, and ~\`,
+not single quote), so that the bot knows that you want to delete the
+message.
+
+Please also notice that some channels may not support editing and/or
+deleting messages depends on their implementations.
+
+``/chat``: Chat head
+^^^^^^^^^^^^^^^^^^^^
+
+If you want to send a message to a non-linked chat which has not yet
+sent you a message, you can ask ETM to generate a “chat head”. Chat head
+works similarly to an incoming message, you can reply to it to send
+messages to your recipient.
+
+Send ``/chat`` to the bot, and choose a chat from the list. When you see
+“Reply to this message to send to from ”, it’s ready to go.
+
+Advanced feature: Filtering
+'''''''''''''''''''''''''''
+
+Filter is also available in ``/chat`` command. Please refer to the
+same chapter above, under ``/link`` for the details.
+
+
+``/extra``: External commands from slave channels (“additional features”)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some slave channels may provide commands that allows you to remotely
 control those accounts, and achieve extra functionality, those commands
@@ -390,6 +410,30 @@ How to use:
 1. Add the bot as an administrator of the channel
 2. Send commands to the channel
 3. Forward the command message to the bot privately
+
+Limitations
+-----------
+
+Due to the technical limitations of Telegram Bot API and EH Forwarder
+Bot framework, there are some limitations:
+
+- Some Telegram message types are **not** supported:
+    - Game messages
+    - Invoice messages
+    - Payment messages
+    - Passport messages
+    - Vote messages
+- Some components in Telegram messages are dropped:
+    - Original author and signature of forwarded messages
+    - Formats, links and link previews
+    - Buttons attached to messages
+    - Details about inline bot used on messages
+- Some components in messages from slave channels are dropped:
+    - @ references.
+- The Telegram bot can only
+    - send you any file up to 50 MiB,
+    - receive file from you up to 20 MiB.
+
 
 Experimental flags
 ------------------
