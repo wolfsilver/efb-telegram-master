@@ -129,7 +129,7 @@ class TelegramChannel(EFBChannel):
         self.flag: ExperimentalFlagsManager = ExperimentalFlagsManager(self)
         self.db: DatabaseManager = DatabaseManager(self)
         self.bot_manager: TelegramBotManager = TelegramBotManager(self)
-        # self.voice_recognition: VoiceRecognitionManager = VoiceRecognitionManager(self)
+        self.voice_recognition: VoiceRecognitionManager = VoiceRecognitionManager(self)
         self.chat_binding: ChatBindingManager = ChatBindingManager(self)
         self.commands: CommandsManager = CommandsManager(self)
         self.master_messages: MasterMessageProcessor = MasterMessageProcessor(self)
@@ -310,6 +310,10 @@ class TelegramChannel(EFBChannel):
                      "/update_info\n"
                      "    Update name and profile picture a linked Telegram group.\n"
                      "    Only works in singly linked group where the bot is an admin.\n"
+                     "/recog\n"
+                     "    Reply to a voice message to convert it to text.\n"
+                     "    Followed by a language code to choose a specific language.\n"
+                     "    You have to enable speech to text in the config file first.\n"
                      "/help\n"
                      "    Print this command list.")
         bot.send_message(update.message.from_user.id, txt)

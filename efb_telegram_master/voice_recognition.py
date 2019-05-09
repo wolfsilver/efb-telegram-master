@@ -127,8 +127,12 @@ class VoiceRecognitionManager(LocaleMixin):
         file, _, _ = self._download_file(update.message, update.message.reply_to_message.voice)
 
         results = OrderedDict()
+        try:
+            lang = args[0]
+        except IndexError:
+            lang = 'zh'
         for i in self.voice_engines:
-            results["%s (%s)" % (i.engine_name, args[0])] = i.recognize(file.name, args[0])
+            results["%s (%s)" % (i.engine_name, lang)] = i.recognize(file.name, lang)
 
         msg = ""
         for i in results:
