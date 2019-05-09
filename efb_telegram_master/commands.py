@@ -132,7 +132,7 @@ class CommandsManager(LocaleMixin):
             if isinstance(i, EFBChannel):
                 msg += "\n\n<b>{0} {1}".format(
                     html.escape(i.channel_emoji),
-                    html.escape(i.module_name))
+                    html.escape(i.channel_name))
                 if i.instance_id:
                     msg += " ({})".format(html.escape(i.instance_id))
                 msg += "</b>"
@@ -173,7 +173,7 @@ class CommandsManager(LocaleMixin):
 
         msg = "<b>{0} {1}".format(
             html.escape(channel.channel_emoji),
-            html.escape(channel.module_name))
+            html.escape(channel.channel_name))
         if channel.instance_id:
             msg += " ({})".format(html.escape(channel.instance_id))
         msg += "</b>"
