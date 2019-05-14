@@ -22,6 +22,7 @@ class ExperimentalFlagsManager(LocaleMixin):
         "prevent_message_removal": True,
         "auto_locale": True,
         "retry_on_error": False,
+        "img_min_file_size": 1,       # 文件大小1M
         "img_min_size": 1600,       # 最短边>1600
         "img_max_size": 1200,       # 最长边>1200，且长短边比例>3.5
         "img_size_ratio": 3.5,
