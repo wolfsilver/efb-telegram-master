@@ -247,6 +247,8 @@ class MasterMessageProcessor(LocaleMixin):
                 m.chat.chat_alias = chat_info.slave_chat_alias
                 m.chat.chat_type = ChatType(chat_info.slave_chat_type)
             m.deliver_to = coordinator.slaves[channel]
+            m.is_forward = bool(getattr(message, "forward_from", None))
+
             if target and target_channel == channel:
                 trgt_msg = EFBMsg()
                 trgt_msg.type = MsgType.Text
@@ -490,7 +492,7 @@ class MasterMessageProcessor(LocaleMixin):
             # Workaround: Compress GIF for slave channel `blueset.wechat`
             # TODO: Move this logic to `blueset.wechat` in the future
             subprocess.Popen(
-                ["ffmpeg", "-y", "-i", path, '-vf', "scale=600:-2", gif_file.name], 
+                ["ffmpeg", "-y", "-i", path, '-vf', "scale=600:-2", gif_file.name],
                 bufsize=0
             ).wait()
         else:
