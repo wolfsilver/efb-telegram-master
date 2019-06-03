@@ -366,6 +366,7 @@ class SlaveMessageProcessor(LocaleMixin):
 
         attributes: EFBMsgLinkAttribute = msg.attributes
 
+
         thumbnail = urllib.parse.quote(attributes.image or "", safe="?=&#:/")
         thumbnail = "<a href=\"%s\">🔗</a>" % thumbnail if thumbnail else "🔗"
 
