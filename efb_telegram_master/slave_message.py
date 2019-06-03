@@ -366,12 +366,20 @@ class SlaveMessageProcessor(LocaleMixin):
 
         attributes: EFBMsgLinkAttribute = msg.attributes
 
+        # 需要@强制通知提醒
+        notice = ''
+        if attributes.notice:
+            notice += '<a href="tg://user?id=%s">' % self.channel.config['admins'][0]
+            notice += html.escape(self.bot.self.name)
+            notice += "</a>"
+
         thumbnail = urllib.parse.quote(attributes.image or "", safe="?=&#:/")
         thumbnail = "<a href=\"%s\">🔗</a>" % thumbnail if thumbnail else "🔗"
-        text = "%s <a href=\"%s\">%s</a>\n%s" % \
+        text = "%s <a href=\"%s\">%s</a>\n%s%s" % \
                (thumbnail,
                 urllib.parse.quote(attributes.url, safe="?=&#:/"),
                 html.escape(attributes.title or attributes.url),
+                notice,
                 html.escape(attributes.description or ""))
         if msg.text:
             text += "\n\n" + msg.text
