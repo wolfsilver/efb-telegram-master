@@ -6,7 +6,7 @@ import re
 import threading
 import urllib.parse
 import io
-from typing import Tuple, Dict, Optional, List, Pattern, TYPE_CHECKING
+from typing import Tuple, Dict, Optional, List, Pattern, TYPE_CHECKING, IO
 
 import peewee
 import telegram
@@ -65,7 +65,7 @@ class ETMChat(EFBChat):
             Alias: <Chat Alias>
             ID: <Chat Unique ID>
             Type: (User|Group)
-            Mode: [[Muted, ]Linked]
+            Mode: [Linked]
             Other: <Python Dictionary String>
 
         Args:
@@ -459,10 +459,8 @@ class ChatBindingManager(LocaleMixin):
             self.msg_storage.pop((tg_chat_id, tg_msg_id), None)
             return ConversationHandler.END
 
-        callback_uid: int = int(callback_uid.split()[1])
-        chat: ETMChat = self.msg_storage[(tg_chat_id, tg_msg_id)].chats[callback_uid]
-        chat_display_name = chat.chat_name if not chat.chat_alias else self._("{alias} ({name})") \
-            .format(alias=chat.chat_alias, name=chat.chat_name)
+        callback_idx: int = int(callback_uid.split()[1])
+        chat: ETMChat = self.msg_storage[(tg_chat_id, tg_msg_id)].chats[callback_idx]
         chat_display_name = chat.full_name
 
         self.msg_storage[(tg_chat_id, tg_msg_id)].chats = [chat]
@@ -566,7 +564,8 @@ class ChatBindingManager(LocaleMixin):
 
     def link_chat(self, update, args):
         try:
-            storage_key: Tuple[int, int] = tuple(map(int, utils.message_id_str_to_id(utils.b64de(args[0]))))
+            msg_id = utils.message_id_str_to_id(utils.b64de(args[0]))
+            storage_key: Tuple[int, int] = (int(msg_id[0]), int(msg_id[1]))
             data = self.msg_storage[storage_key]
         except KeyError:
             return update.message.reply_text(self._("Session expired or unknown parameter. (SE02)"))
@@ -688,8 +687,8 @@ class ChatBindingManager(LocaleMixin):
                 slave_channel_id, slave_chat_id = utils.chat_id_str_to_id(chats[0])
                 channel = coordinator.slaves[slave_channel_id]
                 try:
-                    chat: ETMChat = ETMChat(chat=self.get_chat_from_db(slave_channel_id, slave_chat_id)
-                                                 or channel.get_chat(slave_chat_id))
+                    chat: ETMChat = ETMChat(chat=self.get_chat_from_db(slave_channel_id, slave_chat_id) or
+                                                 channel.get_chat(slave_chat_id))
                     msg_text = self._('This group is linked to {0}'
                                       'Send a message to this group to deliver it to the chat.\n'
                                       'Do NOT reply to this system message.') \
@@ -866,12 +865,15 @@ class ChatBindingManager(LocaleMixin):
                                                               'This only works in a group linked with one chat. '
                                                               'Currently {0} chats linked to this group.',
                                                               len(chats)).format(len(chats)))
-        picture = None
-        pic_resized = None
+        picture: Optional[IO] = None
+        pic_resized: Optional[IO] = None
         try:
             channel_id, chat_uid = utils.chat_id_str_to_id(chats[0])
             channel = coordinator.slaves[channel_id]
-            chat = ETMChat(chat=channel.get_chat(chat_uid), db=self.db)
+            chat = channel.get_chat(chat_uid)
+            if chat is None:
+                raise EFBChatNotFound()
+            chat = ETMChat(chat=chat, db=self.db)
             # bot.set_chat_title(tg_chat, chat.chat_title.replace('💬👤 ', '').replace('💬👥 ', '').replace('💬💻 ', ''))
             bot.set_chat_title(tg_chat, re.sub('💬. ', '', chat.chat_title))
 
@@ -914,15 +916,18 @@ class ChatBindingManager(LocaleMixin):
         except KeyError:
             return self.bot.reply_error(update, self._('Channel linked is not found.'))
         except EFBChatNotFound:
+            self.logger.exception("Chat linked is not found in channel.")
             return self.bot.reply_error(update, self._('Chat linked is not found in channel.'))
         except telegram.TelegramError as e:
+            self.logger.exception("Error occurred while update chat information.")
             return self.bot.reply_error(update, self._('Error occurred while update chat information.\n'
                                                        '{0}'.format(e.message)))
-        except Exception as e:
-            return self.bot.reply_error(update, self._('Error occurred while update chat information. \n'
-                                                       '{0}'.format(e)))
         except EFBOperationNotSupported:
             return self.bot.reply_error(update, self._('No profile picture provided from this chat.'))
+        except Exception as e:
+            self.logger.exception("Unknown error caught when querying chat.")
+            return self.bot.reply_error(update, self._('Error occurred while update chat information. \n'
+                                                       '{0}'.format(e)))
         finally:
             if getattr(picture, 'close', None):
                 picture.close()

@@ -24,15 +24,20 @@ class LocaleHandler(Handler):
             be used to insert updates. Default is ``False``
     """
 
-    def __init__(self, channel: 'TelegramChannel', pass_update_queue: bool=False):
+    def __init__(self, channel: 'TelegramChannel', pass_update_queue: bool = False):
+        def void_function(*args, **kwargs):
+            pass
 
+        super().__init__(void_function, pass_update_queue)
         self.logger = logging.getLogger(__name__)
 
         self.channel = channel
-        if not self.channel.flag('auto_locale'):
-            self.check_update = lambda update: False
+        self.auto_locale = self.channel.flag('auto_locale')
 
     def check_update(self, update: Update):
+        if not self.auto_locale:
+            return False
+
         self.logger.debug("[%s] Update has language %s.", update.update_id, update.effective_user.language_code)
         if update.effective_user.language_code and update.effective_user.language_code != self.channel.locale:
             self.channel.locale = update.effective_user.language_code
