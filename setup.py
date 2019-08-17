@@ -39,19 +39,20 @@ setup(
         "Topic :: Utilities"
     ],
     install_requires=[
-        "ehforwarderbot>=2.0.0b15",
+        "ehforwarderbot>=2.0.0b18",
         "python-telegram-bot>=10.0.0,<12.0.0",
         "python-magic",
         "moviepy",
         "peewee",
         "requests",
         "pydub",
-        "PyYaml",
+        "ruamel.yaml",
         "pillow",
         "language-tags",
         "retrying",
     ],
     entry_points={
-        "ehforwarderbot.master": "blueset.telegram = efb_telegram_master:TelegramChannel"
+        "ehforwarderbot.master": "blueset.telegram = efb_telegram_master:TelegramChannel",
+        "ehforwarderbot.wizard": "blueset.telegram = efb_telegram_master.wizard:wizard"
     }
 )
