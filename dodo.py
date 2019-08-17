@@ -4,6 +4,7 @@ import subprocess
 from doit.action import CmdAction
 
 PACKAGE = "efb_telegram_master"
+README_BASE = "./README.rst"
 DEFAULT_BUMP_MODE = "beta"
 # major, minor, patch, alpha, beta, dev, post
 DOIT_CONFIG = {
@@ -16,21 +17,42 @@ def task_gettext():
     sources = glob.glob("./{package}/**/*.py".format(package=PACKAGE), recursive=True)
     sources = [i for i in sources if "__version__.py" not in i]
     command = "xgettext --add-comments=TRANSLATORS -o " + pot + " " + " ".join(sources)
+    sources.append(README_BASE)
     return {
         "actions": [
-            command
+            command,
+            ['cp', README_BASE, './.cache/README.rst'],
+            ['sphinx-build', '-b', 'gettext', '-C', '-D', 'master_doc=README',
+             '-D', 'gettext_additional_targets=literal-block,image',
+             './.cache', './readme_translations/locale/', './.cache/README.rst'],
+            ['rm', './.cache/README.rst'],
         ],
         "targets": [
-            pot
+            pot,
+            "./readme_translations/locale/README.pot"
         ],
         "file_dep": sources
     }
 
 
 def task_msgfmt():
+    languages = [i[i.rfind('/')+1:i.rfind('.')] for i in glob.glob("./readme_translations/locale/*.po")]
+
     sources = glob.glob("./{package}/**/*.po".format(package=PACKAGE), recursive=True)
     dests = [i[:-3] + ".mo" for i in sources]
     actions = [["msgfmt", sources[i], "-o", dests[i]] for i in range(len(sources))]
+
+    actions.append(["mkdir", "./.cache/source"])
+    actions.append(["cp", README_BASE, "./.cache/source/README.rst"])
+    for i in languages:
+        actions.append(["sphinx-build", "-E", "-b", "rst", "-C",
+                        "-D", f"language={i}", "-D", "locale_dirs=./readme_translations/locale",
+                        "-D", "extensions=sphinxcontrib.restbuilder",
+                        "-D", "master_doc=README", "./.cache/source", f"./.cache/{i}"])
+        actions.append(["mv", f"./.cache/{i}/README.rst", f"./readme_translations/{i}.rst"])
+        actions.append(["rm", "-rf", f"./.cache/{i}"])
+    actions.append(["rm", "-rf", "./.cache/source"])
+
     return {
         "actions": actions,
         "targets": dests,
@@ -99,7 +121,7 @@ def task_bump_version():
 
 
 def task_mypy():
-    actions = ["mypy -p {}".format(PACKAGE)]
+    actions = ["mypy -p {} --ignore-missing-imports".format(PACKAGE)]
     sources = glob.glob("./{package}/**/*.py".format(package=PACKAGE), recursive=True)
     sources = [i for i in sources if "__version__.py" not in i]
     return {
@@ -132,6 +154,8 @@ def task_build():
 def task_publish():
     def get_twine_command():
         __version__ = __import__(PACKAGE).__version__
+        if 'dev' in __version__:
+            raise ValueError(f"Cannot publish dev version ({__version__}).")
         binarys = glob.glob("./dist/*{}*".format(__version__), recursive=True)
         return " ".join(["twine", "upload"] + binarys)
     return {

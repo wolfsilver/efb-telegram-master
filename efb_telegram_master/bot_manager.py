@@ -57,8 +57,9 @@ class TelegramBotManager(LocaleMixin):
         config = self.channel.config
 
         req_kwargs = {'read_timeout': 30, 'connect_timeout': 15}
-        if isinstance(config.get('request_kwargs'), collections.abc.Mapping):
-            req_kwargs.update(config.get('request_kwargs'))
+        conf_req_kwargs = config.get('request_kwargs')
+        if isinstance(conf_req_kwargs, collections.abc.Mapping):
+            req_kwargs.update(conf_req_kwargs)
 
         self.updater: telegram.ext.Updater = telegram.ext.Updater(config['token'],
                                                                   request_kwargs=req_kwargs)
@@ -80,7 +81,7 @@ class TelegramBotManager(LocaleMixin):
         self.Decorators.enabled = channel.flag('retry_on_error')
 
     @Decorators.retry_on_timeout
-    def send_message(self, *args, prefix: Optional[str] = '', suffix: Optional[str] = '', **kwargs):
+    def send_message(self, *args, prefix: str = '', suffix: str = '', **kwargs):
         """
         Send text message.
 
@@ -96,7 +97,11 @@ class TelegramBotManager(LocaleMixin):
         """
         prefix = (prefix and (prefix + "\n")) or prefix
         suffix = (suffix and ("\n" + suffix)) or suffix
-        text = (args[1:] and args[1]) or kwargs.pop('text', '')
+        text: str
+        if args[1:]:
+            text = args[1]
+        else:
+            text = kwargs.pop('text')
         args = args[:1]
         if len(prefix + text + suffix) >= telegram.constants.MAX_MESSAGE_LENGTH:
             full_message = io.StringIO(prefix + text + suffix)
@@ -196,7 +201,7 @@ class TelegramBotManager(LocaleMixin):
                 raise e
 
     # @Decorator
-    def caption_affix_decorator(fn: Callable):
+    def caption_affix_decorator(fn: Callable):  # type: ignore
         def caption_affix(self, *args, **kwargs):
             prefix = kwargs.pop('prefix', '')
             suffix = kwargs.pop('suffix', '')
@@ -343,6 +348,24 @@ class TelegramBotManager(LocaleMixin):
 
     @Decorators.retry_on_timeout
     @caption_affix_decorator
+    def send_animation(self, *args, **kwargs):
+        """
+        Send a document.
+
+        Takes exactly same parameters as telegram.bot.send_document,
+        plus the following.
+
+        Args:
+            prefix (str, optional): Prefix of the caption. Default: ""
+            suffix (str, optional): Suffix of the caption. Default: ""
+
+        Returns:
+            telegram.Message
+        """
+        return self.updater.bot.send_animation(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    @caption_affix_decorator
     def send_photo(self, *args, **kwargs):
         """
         Send a document.
@@ -364,8 +387,20 @@ class TelegramBotManager(LocaleMixin):
         return self.updater.bot.send_chat_action(*args, **kwargs)
 
     @Decorators.retry_on_timeout
+    def edit_message_reply_markup(self, *args, **kwargs):
+        return self.updater.bot.edit_message_reply_markup(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    def send_location(self, *args, **kwargs):
+        return self.updater.bot.send_location(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
     def send_venue(self, *args, **kwargs):
         return self.updater.bot.send_venue(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    def send_sticker(self, *args, **kwargs):
+        return self.updater.bot.send_sticker(*args, **kwargs)
 
     @Decorators.retry_on_timeout
     def get_me(self, *args, **kwargs):
@@ -396,12 +431,16 @@ class TelegramBotManager(LocaleMixin):
                                  reply_to_message_id=update.effective_message.message_id)
 
     @Decorators.retry_on_timeout
-    def get_file(self, file_id):
+    def get_file(self, file_id: str) -> telegram.File:
         return self.updater.bot.get_file(file_id)
 
     @Decorators.retry_on_timeout
     def delete_message(self, chat_id, message_id):
         return self.updater.bot.delete_message(chat_id, message_id)
+
+    @Decorators.retry_on_timeout
+    def answer_callback_query(self, *args, **kwargs):
+        return self.updater.bot.answer_callback_query(*args, **kwargs)
 
     def polling(self):
         """
