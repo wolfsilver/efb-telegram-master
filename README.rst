@@ -509,3 +509,11 @@ supported languages. Meanwhile, you can help to translate
 this project into your languages on `our Crowdin page`_.
 
 .. _our Crowdin page: https://crowdin.com/project/ehforwarderbot/
+
+
+Enhance functions
+-----------------
+
+- 免打扰强制通知
+- 更新群组描述信息（微信群成员信息）
+- 缓存聊天对象，避免每次都要回复消息
