@@ -3,10 +3,12 @@ import html
 from typing import Tuple, Dict, TYPE_CHECKING, List, Any, Union
 
 from telegram import Message, Update
-from telegram.ext import CommandHandler, ConversationHandler, RegexHandler, CallbackQueryHandler
+from telegram.ext import CommandHandler, ConversationHandler, CallbackQueryHandler, MessageHandler, CallbackContext
+from telegram.ext.filters import Filters
 
 from ehforwarderbot import coordinator, EFBChannel, EFBMiddleware
 from ehforwarderbot.message import EFBMsgCommand
+from ehforwarderbot.types import ExtraCommandName
 from .constants import Flags
 from .locale_mixin import LocaleMixin
 
@@ -37,11 +39,13 @@ class CommandsManager(LocaleMixin):
         self.bot.dispatcher.add_handler(
             CommandHandler("extra", self.extra_listing))
         self.bot.dispatcher.add_handler(
-            RegexHandler(r"^/h_(?P<id>[0-9]+)_(?P<command>[a-z0-9_-]+)", self.extra_usage,
-                         pass_groupdict=True))
+            MessageHandler(
+                Filters.regex(r"^/h_(?P<id>[0-9]+)_(?P<command>[a-z0-9_-]+)"),
+                self.extra_usage))
         self.bot.dispatcher.add_handler(
-            RegexHandler(r"^/(?P<id>[0-9]+)_(?P<command>[a-z0-9_-]+)", self.extra_call,
-                         pass_groupdict=True))
+            MessageHandler(
+                Filters.regex(r"^/(?P<id>[0-9]+)_(?P<command>[a-z0-9_-]+)"),
+                self.extra_call))
 
         self.command_conv = ConversationHandler(
             entry_points=[],
@@ -64,16 +68,12 @@ class CommandsManager(LocaleMixin):
         self.command_conv.conversations[message_identifier] = Flags.COMMAND_PENDING
         self.msg_storage[message_identifier] = commands
 
-    def command_exec(self, bot, update: Update) -> int:
+    def command_exec(self, update: Update, context: CallbackContext) -> int:
         """
         Run a command from a command message.
         Triggered by callback message with status `Flags.COMMAND_PENDING`.
 
         This method is a part of the command message conversation handler.
-
-        Args:
-            bot: Telegram Bot instance
-            update: The update
 
         Returns:
             The next state
@@ -100,7 +100,10 @@ class CommandsManager(LocaleMixin):
         command_storage = self.msg_storage[index]
         module = command_storage.module
         command = command_storage.commands[callback]
-        prefix = f"{command_storage.prefix}\n{command_storage.body}\n--------"
+        prefix = command_storage.prefix
+
+        # Clear inline buttons.
+        update.callback_query.edit_message_reply_markup()
 
         fn = getattr(module, command.callable_name, None)
         if fn is not None:
@@ -116,18 +119,21 @@ class CommandsManager(LocaleMixin):
                                          __callable=command.callable_name,
                                          **command.kwargs)
         self.msg_storage.pop(index, None)
-        self.bot.edit_message_text(prefix=prefix, text=msg,
-                                   chat_id=chat_id, message_id=message_id)
+        # self.bot.edit_message_text(prefix=prefix, text=msg,
+        #                            chat_id=chat_id, message_id=message_id)
+        if msg is None:
+            return ConversationHandler.END
+        self.bot.answer_callback_query(
+            prefix=prefix, text=msg,
+            chat_id=chat_id, message_id=message_id,
+            callback_query_id=update.callback_query.id
+        )
         return ConversationHandler.END
 
-    def extra_listing(self, bot, update):
+    def extra_listing(self, update: Update, context: CallbackContext):
         """
         Show list of additional features and their usage.
         Triggered by `/extra`.
-
-        Args:
-            bot: Telegram Bot instance
-            update: Message update
         """
         msg = self._("<i>Click the link next to the name for usage.</i>\n")
         for idx, i in enumerate(self.modules_list):
@@ -161,7 +167,8 @@ class CommandsManager(LocaleMixin):
                 msg += "\n" + self._("No command found.")
         self.bot.send_message(update.effective_chat.id, msg, parse_mode="HTML")
 
-    def extra_usage(self, bot, update, groupdict: Dict[str, str]):
+    def extra_usage(self, update: Update, context: CallbackContext):
+        groupdict = context.match.groupdict()
         if int(groupdict['id']) >= len(self.modules_list):
             return self.bot.reply_error(update, self._("Invalid module id ID. (XC03)"))
 
@@ -187,17 +194,11 @@ class CommandsManager(LocaleMixin):
             html.escape(command.desc.format(function_name=fn_name)))
         self.bot.send_message(update.effective_chat.id, msg, parse_mode="HTML")
 
-    def extra_call(self, bot, update, groupdict: Dict[str, str]):
+    def extra_call(self, update: Update, context: CallbackContext):
         """
         Invoke an additional feature from slave channel.
-
-        Args:
-            bot: Telegram Bot instance
-            update: Message update
-            groupdict: Parameters offered by the message
-                'id': Index of channel sorted by ``channel_id`` in lexicographical order.
-                'command': Name of the command.
         """
+        groupdict = context.match.groupdict()
         if int(groupdict['id']) >= len(coordinator.slaves):
             return self.bot.reply_error(update, self._("Invalid module ID. (XC01)"))
 
@@ -205,6 +206,8 @@ class CommandsManager(LocaleMixin):
 
         channel = slaves[sorted(slaves)[int(groupdict['id'])]]
         functions = channel.get_extra_functions()
+
+        command_name = ExtraCommandName(groupdict['command'])
 
         if groupdict['command'] not in functions:
             return self.bot.reply_error(update, self._("Command not found in selected module. (XC02)"))
@@ -216,7 +219,8 @@ class CommandsManager(LocaleMixin):
         msg = self.bot.send_message(update.message.chat.id,
                                     prefix=header, text=self._("Please wait..."))
 
-        result = functions[groupdict['command']](" ".join(update.message.text.split(' ', 1)[1:]))
+        result = functions[ExtraCommandName(groupdict['command'])](
+            " ".join(update.message.text.split(' ', 1)[1:]))
 
         self.bot.edit_message_text(prefix=header, text=result,
                                    chat_id=update.message.chat.id, message_id=msg.message_id)

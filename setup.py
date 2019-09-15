@@ -40,7 +40,7 @@ setup(
     ],
     install_requires=[
         "ehforwarderbot>=2.0.0b18",
-        "python-telegram-bot>=10.0.0,<12.0.0",
+        "python-telegram-bot>=12.1.0",
         "python-magic",
         "moviepy",
         "peewee",
@@ -50,6 +50,11 @@ setup(
         "pillow",
         "language-tags",
         "retrying",
+        "bullet",
+        "cjkwrap",
+        "humanize",
+        "tgs",
+        "cairosvg",  # required by ``tgs`` to export GIF
     ],
     entry_points={
         "ehforwarderbot.master": "blueset.telegram = efb_telegram_master:TelegramChannel",

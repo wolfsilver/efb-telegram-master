@@ -2,7 +2,9 @@
 import collections
 import io
 import logging
+import operator
 import os
+from functools import reduce
 
 import telegram
 import telegram.ext
@@ -10,13 +12,19 @@ import telegram.error
 import telegram.constants
 from retrying import retry
 
-from typing import Optional, List, TYPE_CHECKING, Callable
-from .whitelisthandler import WhitelistHandler
+from typing import List, TYPE_CHECKING, Callable
+
+from telegram import Update, InputFile
+from telegram.ext import CallbackContext, Filters, MessageHandler
+
 from .locale_handler import LocaleHandler
 from .locale_mixin import LocaleMixin
 
 if TYPE_CHECKING:
     from . import TelegramChannel
+
+
+MAX_CALLBACK_QUERY_ANSWER_LENGTH = 200
 
 
 class TelegramBotManager(LocaleMixin):
@@ -32,6 +40,7 @@ class TelegramBotManager(LocaleMixin):
     """
 
     webhook = False
+    logger = logging.getLogger(__name__)
 
     class Decorators:
         logger = logging.getLogger(__name__)
@@ -62,7 +71,8 @@ class TelegramBotManager(LocaleMixin):
             req_kwargs.update(conf_req_kwargs)
 
         self.updater: telegram.ext.Updater = telegram.ext.Updater(config['token'],
-                                                                  request_kwargs=req_kwargs)
+                                                                  request_kwargs=req_kwargs,
+                                                                  use_context=True)
 
         if isinstance(config.get('webhook'), dict):
             self.webhook = True
@@ -76,7 +86,10 @@ class TelegramBotManager(LocaleMixin):
         self.me: telegram.User = self.updater.bot.get_me()
         self.admins: List[int] = config['admins']
         self.dispatcher: telegram.ext.Dispatcher = self.updater.dispatcher
-        self.dispatcher.add_handler(WhitelistHandler(self.admins))
+        # New whitelist handler
+        whitelist_filter = ~Filters.user(user_id=self.admins)
+        self.dispatcher.add_handler(
+            MessageHandler(whitelist_filter, lambda update, context: ...))
         self.dispatcher.add_handler(LocaleHandler(channel))
         self.Decorators.enabled = channel.flag('retry_on_error')
 
@@ -104,7 +117,8 @@ class TelegramBotManager(LocaleMixin):
             text = kwargs.pop('text')
         args = args[:1]
         if len(prefix + text + suffix) >= telegram.constants.MAX_MESSAGE_LENGTH:
-            full_message = io.StringIO(prefix + text + suffix)
+            full_message = io.BytesIO((prefix + text + suffix).encode('utf-8'))
+            full_message.seek(0)
             truncated = prefix + text[:100] + "\n...\n" + text[-100:] + suffix
             msg = self._bot_send_message_fallback(args[0], text=truncated, **kwargs)
             filename = "%s_%s" % (args[0], msg.message_id)
@@ -116,7 +130,7 @@ class TelegramBotManager(LocaleMixin):
                 filename += ".html"
             else:
                 filename += ".txt"
-            self.updater.bot.send_document(args[0], full_message, filename,
+            self.updater.bot.send_document(args[0], full_message, filename=filename,
                                            reply_to_message_id=msg.message_id,
                                            caption=self._("Message is truncated due to its length. "
                                                           "Full message is sent as attachment."))
@@ -406,7 +420,7 @@ class TelegramBotManager(LocaleMixin):
     def get_me(self, *args, **kwargs):
         return self.updater.bot.get_me(*args, **kwargs)
 
-    def session_expired(self, bot, update):
+    def session_expired(self, update: Update, context: CallbackContext):
         self.edit_message_text(text=self._("Session expired. Please try again. (SE01)"),
                                chat_id=update.effective_chat.id,
                                message_id=update.effective_message.message_id)
@@ -422,7 +436,7 @@ class TelegramBotManager(LocaleMixin):
 
     def reply_error(self, update, errmsg):
         """
-        A wrap that directly reply a message with error details.
+        A wrap that quote-reply a message with error details.
 
         Returns:
             telegram.Message: Message sent
@@ -439,8 +453,39 @@ class TelegramBotManager(LocaleMixin):
         return self.updater.bot.delete_message(chat_id, message_id)
 
     @Decorators.retry_on_timeout
-    def answer_callback_query(self, *args, **kwargs):
+    def answer_callback_query(self, *args, prefix="", suffix="",
+                              message_id=None, **kwargs):
+        prefix = (prefix and (prefix + "\n")) or prefix
+        suffix = (suffix and ("\n" + suffix)) or suffix
+        text: str
+
+        if args[1:]:
+            text = args[1]
+        else:
+            text = kwargs.pop('text')
+        args = args[:1]
+
+        chat_id = kwargs.get('chat_id')
+
+        if len(prefix + text + suffix) >= MAX_CALLBACK_QUERY_ANSWER_LENGTH:
+            full_message = io.StringIO(prefix + text + suffix)
+            truncated = prefix + text[:25] + "\n...\n" + text[-25:] + suffix
+            result = self.updater.bot.answer_callback_query(*args, text=truncated, **kwargs)
+            filename = f"{chat_id}_{message_id}.txt"
+            self.updater.bot.send_document(args[0], full_message, filename,
+                                           reply_to_message_id=message_id,
+                                           caption=self._("Response is truncated due to its length. "
+                                                          "Full message is sent as attachment."))
+            return result
         return self.updater.bot.answer_callback_query(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    def set_chat_title(self, *args, **kwargs):
+        return self.updater.bot.set_chat_title(*args, **kwargs)
+
+    @Decorators.retry_on_timeout
+    def set_chat_photo(self, *args, **kwargs):
+        return self.updater.bot.set_chat_photo(*args, **kwargs)
 
     def polling(self):
         """
@@ -479,6 +524,8 @@ class TelegramBotManager(LocaleMixin):
                 file.seek(0, 2)
                 empty = file.tell() == 0
                 file.seek(0, 0)
+        elif isinstance(file, InputFile):
+            empty = not bool(len(file.input_file_content))
         if empty:
             return self.send_message(chat, prefix=self._("Empty attachment detected.") + prefix,
                                      text=caption, suffix=suffix)

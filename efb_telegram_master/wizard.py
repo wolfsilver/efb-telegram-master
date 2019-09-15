@@ -14,6 +14,7 @@ from telegram.ext.filters import Filters
 from telegram.ext import MessageHandler, Updater
 
 from ehforwarderbot import coordinator, utils
+from ehforwarderbot.types import ModuleID
 
 from . import TelegramChannel
 
@@ -43,7 +44,7 @@ class DataModel:
         self.channel_id = TelegramChannel.channel_id
 
         if instance_id:
-            self.channel_id += "#" + instance_id
+            self.channel_id = ModuleID(self.channel_id + "#" + instance_id)
         self.config_path = utils.get_config_path(self.channel_id)
         self.yaml = YAML()
         if not self.config_path.exists():
@@ -139,7 +140,7 @@ class DataModel:
                 f.write(_(
                     "# [RPC interface]\n"
                     "# Enable RPC interface of ETM where you can use scripts to manage data stored\n"
-                    "# the ETM message database or make queries.\n"
+                    "# in the ETM message database or make queries.\n"
                     "# Refer to the project documentation for details.\n"
                     "#\n"
                     "# https://github.com/blueset/efb-telegram-master\n"
@@ -379,6 +380,28 @@ flags_settings = {
          _('Send all image messages as files, in order to prevent Telegram’s '
            'image compression in an aggressive way.')
          ),
+    "message_muted_on_slave":
+        ('normal', 'choices', ['normal', 'silent', 'mute'],
+         _('Behavior when a message received is muted on slave channel '
+           'platform.\n'
+           '\n'
+           '- normal: send to Telegram as normal message\n'
+           '- silent: send to Telegram as normal message, but without '
+           'notification sound\n'
+           '- mute: do not send to Telegram')),
+    "your_message_on_slave":
+        ('silent', 'choices', ['normal', 'silent', 'mute'],
+         _('Behavior when a message received is from you on slave channel '
+           'platform. This overrides settings from message_muted_on_slave.\n'
+           '\n'
+           '- normal: send to Telegram as normal message\n'
+           '- silent: send to Telegram as normal message, but without '
+           'notification sound\n'
+           '- mute: do not send to Telegram')),
+    "animated_stickers":
+        (False, 'bool', None,
+         _('Enable experimental support to animated stickers.')
+         )
 }
 
 
@@ -493,8 +516,7 @@ def setup_rpc(data):
     print("https://github.com/blueset/efb-telegram-master/")
     print()
 
-    proceed = YesNo(prompt=_("Do you want to enable RPC interface? "
-                             "(connection timeout and proxy) "),
+    proceed = YesNo(prompt=_("Do you want to enable RPC interface? "),
                     prompt_prefix="[yN] ").launch(default='n')
     if not proceed:
         return

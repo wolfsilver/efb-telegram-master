@@ -1,5 +1,6 @@
 import glob
 import subprocess
+from pathlib import Path
 
 from doit.action import CmdAction
 
@@ -16,7 +17,7 @@ def task_gettext():
     pot = "./{package}/locale/{package}.pot".format(package=PACKAGE)
     sources = glob.glob("./{package}/**/*.py".format(package=PACKAGE), recursive=True)
     sources = [i for i in sources if "__version__.py" not in i]
-    command = "xgettext --add-comments=TRANSLATORS -o " + pot + " " + " ".join(sources)
+    command = "xgettext --add-comments=TRANSLATORS --from-code=UTF-8 -o " + pot + " " + " ".join(sources)
     sources.append(README_BASE)
     return {
         "actions": [
@@ -36,17 +37,19 @@ def task_gettext():
 
 
 def task_msgfmt():
-    languages = [i[i.rfind('/')+1:i.rfind('.')] for i in glob.glob("./readme_translations/locale/*.po")]
+    languages = [i[i.rfind('/')+1:] for i in glob.glob("./readme_translations/locale/*_*")]
 
-    sources = glob.glob("./{package}/**/*.po".format(package=PACKAGE), recursive=True)
+    sources = glob.glob("./**/*.po", recursive=True)
     dests = [i[:-3] + ".mo" for i in sources]
     actions = [["msgfmt", sources[i], "-o", dests[i]] for i in range(len(sources))]
 
     actions.append(["mkdir", "./.cache/source"])
     actions.append(["cp", README_BASE, "./.cache/source/README.rst"])
+
+    locale_dirs = (Path('.') / "readme_translations" / "locale").absolute()
     for i in languages:
         actions.append(["sphinx-build", "-E", "-b", "rst", "-C",
-                        "-D", f"language={i}", "-D", "locale_dirs=./readme_translations/locale",
+                        "-D", f"language={i}", "-D", f"locale_dirs={locale_dirs}",
                         "-D", "extensions=sphinxcontrib.restbuilder",
                         "-D", "master_doc=README", "./.cache/source", f"./.cache/{i}"])
         actions.append(["mv", f"./.cache/{i}/README.rst", f"./readme_translations/{i}.rst"])
@@ -80,7 +83,7 @@ def task_crowdin_pull():
 def task_commit_lang_file():
     def git_actions():
         if subprocess.run(['git', 'diff-index', '--quiet', 'HEAD']).returncode != 0:
-            return ["git commit -m \"Sync localization files from Crowdin\""]
+            return ["git commit -S -m \"Sync localization files from Crowdin\""]
         return ["echo"]
 
     return {

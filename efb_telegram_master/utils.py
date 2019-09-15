@@ -1,15 +1,30 @@
 # coding=utf-8
 
 import base64
-from typing import Any, Dict, Optional, Tuple, Union, TYPE_CHECKING
+import logging
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING, IO
+
+from typing_extensions import NewType
 
 import telegram
+from tgs.parsers.tgs import parse_tgs
+from tgs.exporters.gif import export_gif
 
 from ehforwarderbot import EFBChat, EFBChannel
+from ehforwarderbot.types import ChatID, ModuleID
 from .locale_mixin import LocaleMixin
 
 if TYPE_CHECKING:
     from . import TelegramChannel
+
+TelegramChatID = NewType('TelegramChatID', str)
+TelegramMessageID = NewType('TelegramMessageID', str)
+TgChatMsgIDStr = NewType('TgChatMsgIDStr', str)
+EFBChannelChatIDStr = NewType('EFBChannelChatIDStr', str)
+# TelegramChatID = Union[str, int]
+# TelegramMessageID = Union[str, int]
+# TgChatMsgIDStr = str
+# EFBChannelChatIDStr = str
 
 
 class ExperimentalFlagsManager(LocaleMixin):
@@ -26,6 +41,9 @@ class ExperimentalFlagsManager(LocaleMixin):
         "img_size_ratio": 3.5,
         "img_size_max_ratio": 10,
         "send_image_as_file": False,
+        "message_muted_on_slave": "normal",
+        "your_message_on_slave": "silent",
+        "animated_stickers": False,
     }
 
     def __init__(self, channel: 'TelegramChannel'):
@@ -38,17 +56,17 @@ class ExperimentalFlagsManager(LocaleMixin):
         return self.config[flag_key]
 
 
-def b64en(s):
+def b64en(s: str) -> str:
     return base64.b64encode(s.encode(), b"-_").decode().rstrip("=")
 
 
-def b64de(s):
+def b64de(s: str) -> str:
     return base64.b64decode((s + '=' * (- len(s) % 4)).encode(), b"-_").decode()
 
 
-def message_id_to_str(chat_id: Optional[Union[int, str]] = None,
-                      message_id: Optional[Union[int, str]] = None,
-                      update: Optional[telegram.Update] = None) -> str:
+def message_id_to_str(chat_id: Optional[TelegramChatID] = None,
+                      message_id: Optional[TelegramMessageID] = None,
+                      update: Optional[telegram.Update] = None) -> TgChatMsgIDStr:
     """
     Convert an unique identifier to telegram message to a string.
 
@@ -67,21 +85,21 @@ def message_id_to_str(chat_id: Optional[Union[int, str]] = None,
     if update:
         chat_id = update.effective_chat.id
         message_id = update.effective_message.message_id
-    return "%s.%s" % (chat_id, message_id)
+    return TgChatMsgIDStr(f"{chat_id}.{message_id}")
 
 
-def message_id_str_to_id(s: str) -> Tuple[str, str]:
+def message_id_str_to_id(s: TgChatMsgIDStr) -> Tuple[TelegramChatID, TelegramMessageID]:
     """
     Reverse of message_id_to_str.
     Returns:
         chat_id, message_id
     """
     msg_ids = s.split(".", 1)
-    return msg_ids[0], msg_ids[1]
+    return TelegramChatID(msg_ids[0]), TelegramMessageID(msg_ids[1])
 
 
-def chat_id_to_str(channel_id: Optional[str] = None, chat_uid: Optional[str] = None,
-                   chat: Optional[EFBChat] = None, channel: Optional[EFBChannel] = None) -> str:
+def chat_id_to_str(channel_id: Optional[ModuleID] = None, chat_uid: Optional[ChatID] = None,
+                   chat: Optional[EFBChat] = None, channel: Optional[EFBChannel] = None) -> EFBChannelChatIDStr:
     """
     Convert an unique identifier to EFB chat to a string.
 
@@ -104,14 +122,28 @@ def chat_id_to_str(channel_id: Optional[str] = None, chat_uid: Optional[str] = N
     if channel:
         channel_id = channel.channel_id
 
-    return f"{channel_id} {chat_uid}"
+    return EFBChannelChatIDStr(f"{channel_id} {chat_uid}")
 
 
-def chat_id_str_to_id(s: str) -> Tuple[str, str]:
+def chat_id_str_to_id(s: EFBChannelChatIDStr) -> Tuple[ModuleID, ChatID]:
     """
     Reverse of chat_id_to_str.
     Returns:
         channel_id, chat_uid
     """
     chat_ids = s.split(" ", 1)
-    return chat_ids[0], chat_ids[1]
+    return ModuleID(chat_ids[0]), ChatID(chat_ids[1])
+
+
+def convert_tgs_to_gif(tgs_file: IO[bytes], gif_file: IO[bytes]):
+    # noinspection PyBroadException
+    try:
+        animation = parse_tgs(tgs_file)
+        # heavy_strip(animation)
+        # heavy_strip(animation)
+        # animation.tgs_sanitize()
+        export_gif(animation, gif_file)  # , {"skip_frames": 5})
+        return True
+    except Exception:
+        logging.exception("Error occurred while converting TGS to GIF.")
+        return False
