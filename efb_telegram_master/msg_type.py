@@ -1,14 +1,16 @@
 # coding=utf-8
+from enum import Enum
 
 import telegram
 
 
-class TGMsgType:
+class TGMsgType(Enum):
     Text = "Text"
     Audio = "Audio"
     Document = "Document"
     Photo = "Photo"
     Sticker = "Sticker"
+    AnimatedSticker = "AnimatedSticker"
     Video = "Video"
     Voice = "Voice"
     Contact = "Contact"
@@ -20,7 +22,7 @@ class TGMsgType:
     Animation = "Animation"
 
 
-def get_msg_type(msg: telegram.Message):
+def get_msg_type(msg: telegram.Message) -> TGMsgType:
     sys = ['new_chat_members',
            'left_chat_member',
            'new_chat_title',
@@ -49,5 +51,8 @@ def get_msg_type(msg: telegram.Message):
              'video_note']
     for i in types:
         if getattr(msg, i, False):
-            return getattr(TGMsgType, i.capitalize())
+            tg_type = TGMsgType(i.capitalize())
+            if tg_type == TGMsgType.Sticker and msg.sticker.is_animated:
+                tg_type = TGMsgType.AnimatedSticker
+            return tg_type
     return TGMsgType.Text

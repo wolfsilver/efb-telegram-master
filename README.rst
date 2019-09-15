@@ -8,6 +8,9 @@ EFB Telegram Master Channel (ETM)
    :alt: Translate this project
    :target: https://crowdin.com/project/ehforwarderbot/
 
+.. image:: https://github.com/blueset/efb-telegram-master/blob/master/banner.png
+   :alt: Banner
+
 `README in other languages`_.
 
 .. _README in other languages: ./readme_translations
@@ -73,7 +76,7 @@ Set up a bot
 ~~~~~~~~~~~~
 
 Create a bot with `@BotFather`_, give it a name and a username.
-Then you'll get a token, which will be used later. Keep this
+Then you’ll get a token, which will be used later. Keep this
 token secure, as it gives who owns it the full access to the
 bot.
 
@@ -97,14 +100,12 @@ A sample config file can be as follows:
     ##################
     # Required items #
     ##################
-    # You are required to fill the option below,
-    # or this channel will not work.
 
-    # Telegram bot token.
-    # This is the token you obtained from BotFather
-    token: "12345678:1a2b3c4d5e6g7h8i9j"
+    # [Bot Token]
+    # This is the token you obtained from @BotFather
+    token: "012345678:1Aa2Bb3Vc4Dd5Ee6Gg7Hh8Ii9Jj0Kk1Ll2M"
 
-    # List of Telegram User IDs of admins
+    # [List of Admin User IDs]
     # ETM will only process messages and commands from users
     # listed below. This ID can be obtained from various ways
     # on Telegram.
@@ -116,14 +117,21 @@ A sample config file can be as follows:
     webhook_url: "https://xxx.com:443"
     port: 5000
 
-    # Experimental Flags
-    # This section can be used to enable experimental functionality.
-    # However, those features may be changed or removed at any time.
+    ##################
+    # Optional items #
+    ##################
+    # [Experimental Flags]
+    # This section can be used to toggle experimental functionality.
+    # These features may be changed or removed at any time.
     # Options in this section is explained afterward.
     flags:
         option_one: 10
         option_two: false
         option_three: "foobar"
+
+    # [Network Configurations]
+    # [RPC Interface]
+    # Refer to relevant sections afterwards for details.
 
 ..  Removal of Speech recognition
     ##################
@@ -164,6 +172,7 @@ to BotFather for a command list::
     chat - Generate a chat head.
     extra - Access additional features from Slave Channels.
     update_info - Update the group name and profile picture.
+    react - Send a reaction to a message, or show a list of reactors.
 
 .. note::
 
@@ -201,6 +210,10 @@ Link/Relink” button. To manually link a remote chat:
 Also, you can send ``/unlink_all`` to a group to unlink all remote chats
 from it.
 
+Also, if you want to link a chat which you just used, you can simply reply
+``/link`` quoting a previous message from that chat without choosing from
+the long chat list.
+
 Advanced feature: Filtering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -227,7 +240,7 @@ E.g.: ``/chat Eana`` will give you all chats has the word “Eana”.
     Alias: <Chat Alias>
     ID: <Chat Unique ID>
     Type: (User|Group)
-    Mode: [[Muted, ]Linked]
+    Mode: [Linked]
     Other: <Python Dictionary String>
 
 
@@ -244,8 +257,8 @@ Examples:
 
 -  Look for all WeChat groups: ``Channel: WeChat.*Type: Group``
 -  Look for everyone who has an alias ``Name: (.*?)\nAlias: (?!\1)``
--  Look for all entries contain “John” and “Jonny” in any order:
-   ``(?=.*John)(?=.*Jonny)"``
+-  Look for all entries contain “John” and “Johnny” in any order:
+   ``(?=.*John)(?=.*Johnny)``
 
 Send a message
 ~~~~~~~~~~~~~~
@@ -258,7 +271,7 @@ You can send message as you do in a normal Telegram chat.
 What is supported:
 
 -  Send/forward message in all supported types
--  Direct reply to a message
+-  Quote-reply to a message
 -  Send message with inline bot in supported types
 
 What is NOT supported:
@@ -270,11 +283,11 @@ What is NOT supported:
 Send to a non-linked chat
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To send a message to a non-linked chat, you should “direct reply” to a
+To send a message to a non-linked chat, you should “quote-reply” to a
 message or a “chat head” that is sent from your recipient. Those
 messages should appear only in the bot conversation.
 
-In a non-linked chat, direct reply will not be delivered to the remote
+In a non-linked chat, quote-reply will not be passed on to the remote
 channel, everything else is supported as it does in a linked chat.
 
 Edit and delete message
@@ -301,7 +314,7 @@ works similarly to an incoming message, you can reply to it to send
 messages to your recipient.
 
 Send ``/chat`` to the bot, and choose a chat from the list. When you see
-“Reply to this message to send to from ”, it’s ready to go.
+“Reply to this message to chat with ...”, it’s ready to go.
 
 Advanced feature: Filtering
 '''''''''''''''''''''''''''
@@ -317,69 +330,42 @@ Some slave channels may provide commands that allows you to remotely
 control those accounts, and achieve extra functionality, those commands
 are called “additional features”. To view the list of available extra
 functions, send ``/extra`` to the bot, you will receive a list of
-commands available, together with their usages.
+commands available.
 
 Those commands are named like “\ ``/<number>_<command_name>``\ ”, and can be
-called like a Linux/unix CLI utility. (of course, please don’t expect
-piping etc to be supported)
+called like an CLI utility. (of course, advanced features like
+piping etc would not be supported)
 
-.. Deprecated feature
-    .
-    ``/recog``: Speech recognition
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    .
-    If you have entered a speech recognition service API keys, you can use
-    it to convert speech in voice messages into text.
-    .
-    Reply any voice messages in a conversation with the bot, with the
-    command ``/recog``, and the bot will try to convert it to text using
-    those speech recognition services enabled.
-    .
-    If you know the language used in this message, you can also attach the
-    language code to the command for a more precise conversion.
-    .
-    Supported language codes:
-    .
-    +-----------+-----------+---------------------------+
-    | Code      | Baidu     | Bing                      |
-    +===========+===========+===========================+
-    | en, en-US | English   | English (US)              |
-    +-----------+-----------+---------------------------+
-    | zh, zh-CN | Mandarin  | Mandarin (China Mainland) |
-    +-----------+-----------+---------------------------+
-    | ct        | Cantonese | \-                        |
-    +-----------+-----------+---------------------------+
-    | de-DE     | \-        | German                    |
-    +-----------+-----------+---------------------------+
-    | ru-RU     | \-        | Russian                   |
-    +-----------+-----------+---------------------------+
-    | ja-JP     | \-        | Japanese                  |
-    +-----------+-----------+---------------------------+
-    | ar-EG     | \-        | Arabic                    |
-    +-----------+-----------+---------------------------+
-    | es-ES     | \-        | Spanish (Spain)           |
-    +-----------+-----------+---------------------------+
-    | pt-BR     | \-        | Portuguese (Brazil)       |
-    +-----------+-----------+---------------------------+
-    | fr-FR     | \-        | French (France)           |
-    +-----------+-----------+---------------------------+
 
 ``/update_info``: Update name and profile picture of linked group
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-EFB can help you to update the name and profile picture of a group to
+ETM can help you to update the name and profile picture of a group to
 match with appearance in the remote chat.
 
 This functionality is available when:
 
 * This command is sent to a group
-* The bot is an admin of the group (“Everyone is admin” will not work
-  in this case)
+* The bot is an admin of the group
 * The group is linked to **exactly** one remote chat
 * The remote chat is accessible
 
 Profile picture will not be set if it’s not available from the slave
 channel.
+
+``/react``: Send reactions to a message or show a list of reactors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reply ``/react`` to a message to show a list of chat members who
+have reacted to the message and what their reactions are.
+
+Reply ``/react`` followed by an emoji to react to this message, e.g.
+``/react 👍``. Send ``/react -`` to remove your reaction.
+
+Note that some slave channels may not accept message reactions, and
+some channels have a limited reactions you can send with. Usually
+when you send an unaccepted reaction, slave channels can provide
+a list of suggested reactions you may want to try instead.
 
 Telegram Channel support
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -391,7 +377,7 @@ The bot can:
 
 -  Link one or more remote chats to a Telegram Channel
 -  Check and manage link status of the channel
--  Let the bot to update channel title and profile pictures accordingly
+-  Update channel title and profile pictures accordingly
 
 It cannot:
 
@@ -401,7 +387,7 @@ It cannot:
 Currently the following commands are supported in channels:
 
 -  ``/start`` for manual chat linking
--  ``/link`` to manage groups linked to the channel
+-  ``/link`` to manage chats linked to the channel
 -  ``/info`` to show information of the channel
 -  ``/update_info`` to update the channel title and picture
 
@@ -411,11 +397,24 @@ How to use:
 2. Send commands to the channel
 3. Forward the command message to the bot privately
 
+.. admonition:: Technical Details
+
+    Telegram Bot API prevents bot from knowing who actually sent a message
+    in a channel (not including signatures as that doesn't reflect the numeric
+    ID of the sender). In fact, that is the same for normal users in a channel
+    too, even admins.
+
+    If messages from channels are to be processed unconditionally, not only
+    that other admins in existing channels can add malicious admins to it,
+    anyone on Telegram, once knows your bot username, can add it to a channel
+    and use the bot on your behalf. Thus, we think that it is not safe to
+    process messages directly from a channel.
+
 Limitations
 -----------
 
-Due to the technical limitations of Telegram Bot API and EH Forwarder
-Bot framework, there are some limitations:
+Due to the technical constraints of both Telegram Bot API and EH Forwarder
+Bot framework, ETM has the following limitations:
 
 - Some Telegram message types are **not** supported:
     - Game messages
@@ -423,13 +422,14 @@ Bot framework, there are some limitations:
     - Payment messages
     - Passport messages
     - Vote messages
+- ETM cannot process any message from another Telegram bot.
 - Some components in Telegram messages are dropped:
     - Original author and signature of forwarded messages
     - Formats, links and link previews
     - Buttons attached to messages
     - Details about inline bot used on messages
 - Some components in messages from slave channels are dropped:
-    - @ references.
+    - @ references not referring to you.
 - The Telegram bot can only
     - send you any file up to 50 MiB,
     - receive file from you up to 20 MiB.
@@ -448,13 +448,6 @@ e.g.:
 
     flags:
         flag_name: flag_value
-
--  ``no_conversion`` *(bool)* [Default: ``false``]
-
-   Disable audio conversion, send all audio file as is, and let Telegram
-   to handle it.
-
-   *Only works in linked chats.*
 
 -  ``chats_per_page`` *(int)* [Default: ``10``]
 
@@ -478,27 +471,187 @@ e.g.:
    When a slave channel requires to remove a message, EFB will ignore
    the request if this value is ``true``.
 
-- ``auto_locale`` *(str)* [Default: ``true``]
+-  ``auto_locale`` *(str)* [Default: ``true``]
 
-   Detect the locale from admin's messages automatically. Locale
+   Detect the locale from admin’s messages automatically. Locale
    defined in environment variables will be used otherwise.
 
-- ``retry_on_error`` *(bool)* [Default: ``false``]
+-   ``retry_on_error`` *(bool)* [Default: ``false``]
 
     Retry infinitely when an error occurred while sending request
     to Telegram Bot API. Note that this may lead to repetitive
     message delivery, as the respond of Telegram Bot API is
     not reliable, and may not reflect the actual result.
 
-- ``send_image_as_file`` *(bool)* [Default: ``false``]
+-   ``send_image_as_file`` *(bool)* [Default: ``false``]
 
-    Send all image messages as files, in order to prevent Telegram's
+    Send all image messages as files, in order to prevent Telegram’s
     image compression in an aggressive way.
 
-Experimental localization support
----------------------------------
+-   ``message_muted_on_slave`` *(str)* [Default: ``normal``]
 
-ETM supports localized user interface prompts experimentally.
+    Behavior when a message received is muted on slave channel platform.
+
+    - ``normal``: send to Telegram as normal message
+    - ``silent``: send to Telegram as normal message, but without notification
+      sound
+    - ``mute``: do not send to Telegram
+
+-   ``your_message_on_slave`` *(str)* [Default: ``silent``]
+
+    Behavior when a message received is from you on slave channel platform.
+    This overrides settings from ``message_muted_on_slave``.
+
+    - ``normal``: send to Telegram as normal message
+    - ``silent``: send to Telegram as normal message, but without notification
+      sound
+    - ``mute``: do not send to Telegram
+
+-   ``animated_stickers`` *(bool)* [Default: ``false``]
+
+    Enable experimental support to animated stickers.
+
+Network configuration: timeout tweaks
+-------------------------------------
+
+   This chapter is adapted from `Python Telegram Bot wiki`__, licensed
+   under CC-BY 3.0.
+
+__ https://github.com/python-telegram-bot/python-telegram-bot/wiki/Handling-network-errors#tweaking-ptb
+
+``python-telegram-bot`` performs HTTPS requests using ``urllib3``.
+``urllib3`` provides control over ``connect_timeout`` & ``read_timeout``.
+``urllib3`` does not separate between what would be considered read &
+write timeout, so ``read_timeout`` serves for both. The defaults chosen
+for each of these parameters is 5 seconds.
+
+The ``connect_timeout`` value controls the timeout for establishing a
+connection to the Telegram server(s).
+
+Changing the defaults of ``read_timeout`` & ``connet_timeout`` can be
+done by adjusting values ``request_kwargs`` section in ETM’s
+``config.yaml``.
+
+.. code:: yaml
+
+   # ...
+   request_kwargs:
+       read_timeout: 6
+       connect_timeout: 7
+
+Run ETM behind a proxy
+----------------------
+
+   This chapter is adapted from `Python Telegram Bot
+   wiki`__, licensed under CC-BY 3.0.
+
+__ https://github.com/python-telegram-bot/python-telegram-bot/wiki/Working-Behind-a-Proxy
+
+You can appoint proxy specifically for ETM without affecting other
+channels running in together in the same EFB instance. This can also be
+done by adjusting values ``request_kwargs`` section in ETM’s
+``config.yaml``.
+
+HTTP proxy server
+~~~~~~~~~~~~~~~~~
+
+.. code:: yaml
+
+   request_kwargs:
+       # ...
+       proxy_url: http://PROXY_HOST:PROXY_PORT/
+       # Optional, if you need authentication:
+       username: PROXY_USER
+       password: PROXY_PASS
+
+SOCKS5 proxy server
+~~~~~~~~~~~~~~~~~~~
+
+This is configuration is supported, but requires an optional/extra
+python package. To install:
+
+.. code:: shell
+
+   pip install python-telegram-bot[socks]
+
+.. code:: yaml
+
+   request_kwargs:
+       # ...
+       proxy_url: socks5://URL_OF_THE_PROXY_SERVER:PROXY_PORT
+       # Optional, if you need authentication:
+       urllib3_proxy_kwargs:
+           username: PROXY_USER
+           password: PROXY_PASS
+
+RPC interface
+-------------
+
+A standard `Python XML RPC server`__ is implemented in ETM 2. It can be
+enabled by adding a ``rpc`` section in ETM’s ``config.yml`` file.
+
+__ https://docs.python.org/3/library/xmlrpc.html
+
+.. code:: yaml
+
+   rpc:
+       server: 127.0.0.1
+       port: 8000
+
+..
+
+.. warning::
+   The ``xmlrpc`` module is not secure against maliciously
+   constructed data. Do not expose the interface to untrusted parties or
+   the public internet, and turn off after use.
+
+Exposed functions
+~~~~~~~~~~~~~~~~~
+
+Functions in `the db (database manager) class`_ and
+`the RPCUtilities class`_ are exposed. Refer to the source code
+for their documentations.
+
+How to use
+~~~~~~~~~~
+
+Set up a ``SimpleXMLRPCClient`` in any Python script and call any of the
+exposed functions directly. For details, please consult `Python
+documentation on xmlrpc`__.
+
+__ https://docs.python.org/3/library/xmlrpc.html
+
+.. _the db (database manager) class: https://github.com/blueset/efb-telegram-master/blob/master/efb_telegram_master/db.py
+.. _the RPCUtilities class: https://github.com/blueset/efb-telegram-master/blob/master/efb_telegram_master/rpc_utilities.py
+
+License
+-------
+
+ETM is licensed under `GNU Affero General Public License 3.0`_ or later versions::
+
+    EFB Telegram Master Channel: An slave channel for EH Forwarder Bot.
+    Copyright (C) 2016 - 2019 Eana Hufwe, and the EFB Telegram Master Channel contributors
+    All rights reserved.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+.. _GNU Affero General Public License 3.0: https://www.gnu.org/licenses/agpl-3.0.txt
+
+Translation support
+-------------------
+
+ETM supports translated user interface with the help of community.
 The bot detects languages of Telegram Client of the admins
 from their messages, and automatically matches with a supported
 language on the go. Otherwise, you can set your language by
@@ -509,6 +662,13 @@ supported languages. Meanwhile, you can help to translate
 this project into your languages on `our Crowdin page`_.
 
 .. _our Crowdin page: https://crowdin.com/project/ehforwarderbot/
+
+
+.. note::
+
+    If your are installing from source code, you will not get translations
+    of the user interface without manual compile of message catalogs (``.mo``)
+    prior to installation.
 
 
 Enhance functions

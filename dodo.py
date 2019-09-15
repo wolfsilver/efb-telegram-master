@@ -1,9 +1,11 @@
 import glob
 import subprocess
+from pathlib import Path
 
 from doit.action import CmdAction
 
 PACKAGE = "efb_telegram_master"
+README_BASE = "./README.rst"
 DEFAULT_BUMP_MODE = "beta"
 # major, minor, patch, alpha, beta, dev, post
 DOIT_CONFIG = {
@@ -15,22 +17,45 @@ def task_gettext():
     pot = "./{package}/locale/{package}.pot".format(package=PACKAGE)
     sources = glob.glob("./{package}/**/*.py".format(package=PACKAGE), recursive=True)
     sources = [i for i in sources if "__version__.py" not in i]
-    command = "xgettext --add-comments=TRANSLATORS -o " + pot + " " + " ".join(sources)
+    command = "xgettext --add-comments=TRANSLATORS --from-code=UTF-8 -o " + pot + " " + " ".join(sources)
+    sources.append(README_BASE)
     return {
         "actions": [
-            command
+            command,
+            ['cp', README_BASE, './.cache/README.rst'],
+            ['sphinx-build', '-b', 'gettext', '-C', '-D', 'master_doc=README',
+             '-D', 'gettext_additional_targets=literal-block,image',
+             './.cache', './readme_translations/locale/', './.cache/README.rst'],
+            ['rm', './.cache/README.rst'],
         ],
         "targets": [
-            pot
+            pot,
+            "./readme_translations/locale/README.pot"
         ],
         "file_dep": sources
     }
 
 
 def task_msgfmt():
-    sources = glob.glob("./{package}/**/*.po".format(package=PACKAGE), recursive=True)
+    languages = [i[i.rfind('/')+1:] for i in glob.glob("./readme_translations/locale/*_*")]
+
+    sources = glob.glob("./**/*.po", recursive=True)
     dests = [i[:-3] + ".mo" for i in sources]
     actions = [["msgfmt", sources[i], "-o", dests[i]] for i in range(len(sources))]
+
+    actions.append(["mkdir", "./.cache/source"])
+    actions.append(["cp", README_BASE, "./.cache/source/README.rst"])
+
+    locale_dirs = (Path('.') / "readme_translations" / "locale").absolute()
+    for i in languages:
+        actions.append(["sphinx-build", "-E", "-b", "rst", "-C",
+                        "-D", f"language={i}", "-D", f"locale_dirs={locale_dirs}",
+                        "-D", "extensions=sphinxcontrib.restbuilder",
+                        "-D", "master_doc=README", "./.cache/source", f"./.cache/{i}"])
+        actions.append(["mv", f"./.cache/{i}/README.rst", f"./readme_translations/{i}.rst"])
+        actions.append(["rm", "-rf", f"./.cache/{i}"])
+    actions.append(["rm", "-rf", "./.cache/source"])
+
     return {
         "actions": actions,
         "targets": dests,
@@ -58,7 +83,7 @@ def task_crowdin_pull():
 def task_commit_lang_file():
     def git_actions():
         if subprocess.run(['git', 'diff-index', '--quiet', 'HEAD']).returncode != 0:
-            return ["git commit -m \"Sync localization files from Crowdin\""]
+            return ["git commit -S -m \"Sync localization files from Crowdin\""]
         return ["echo"]
 
     return {
@@ -99,7 +124,7 @@ def task_bump_version():
 
 
 def task_mypy():
-    actions = ["mypy -p {}".format(PACKAGE)]
+    actions = ["mypy -p {} --ignore-missing-imports".format(PACKAGE)]
     sources = glob.glob("./{package}/**/*.py".format(package=PACKAGE), recursive=True)
     sources = [i for i in sources if "__version__.py" not in i]
     return {
@@ -131,7 +156,9 @@ def task_build():
 
 def task_publish():
     def get_twine_command():
-        __version__ = __import__(PACKAGE).__version__.__version__
+        __version__ = __import__(PACKAGE).__version__
+        if 'dev' in __version__:
+            raise ValueError(f"Cannot publish dev version ({__version__}).")
         binarys = glob.glob("./dist/*{}*".format(__version__), recursive=True)
         return " ".join(["twine", "upload"] + binarys)
     return {
