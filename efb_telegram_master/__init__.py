@@ -39,6 +39,7 @@ from .rpc_utils import RPCUtilities
 from .slave_message import SlaveMessageProcessor
 from .utils import ExperimentalFlagsManager, EFBChannelChatIDStr
 from .cache import LocalCache
+from .voice_recognition import VoiceRecognitionManager
 
 
 class TelegramChannel(EFBChannel):
