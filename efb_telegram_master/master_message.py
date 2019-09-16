@@ -13,7 +13,7 @@ from telegram import Update
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from telegram.utils.helpers import escape_markdown
 
-from efb_telegram_master import ChatDestinationCache
+from .chat_destination_cache import ChatDestinationCache
 from ehforwarderbot import EFBChat, EFBMsg, coordinator
 from ehforwarderbot.constants import MsgType, ChatType
 from ehforwarderbot.exceptions import EFBMessageTypeNotSupported, EFBChatNotFound, \
