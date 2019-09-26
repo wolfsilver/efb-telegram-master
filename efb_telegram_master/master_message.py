@@ -1,7 +1,6 @@
 # coding=utf-8
 
 import logging
-import pickle
 import time
 from queue import Queue
 from threading import Thread
@@ -13,7 +12,7 @@ from telegram import Update
 from telegram.ext import MessageHandler, Filters, CallbackContext
 from telegram.utils.helpers import escape_markdown
 
-from .chat_destination_cache import ChatDestinationCache
+from efb_telegram_master import ETMChat
 from ehforwarderbot import EFBChat, EFBMsg, coordinator
 from ehforwarderbot.constants import MsgType, ChatType
 from ehforwarderbot.exceptions import EFBMessageTypeNotSupported, EFBChatNotFound, \
@@ -22,6 +21,7 @@ from ehforwarderbot.message import EFBMsgLocationAttribute
 from ehforwarderbot.status import EFBMessageRemoval
 from ehforwarderbot.types import ModuleID, ChatID, MessageID
 from . import utils
+from .chat_destination_cache import ChatDestinationCache
 from .locale_mixin import LocaleMixin
 from .message import ETMMsg
 from .msg_type import TGMsgType
@@ -216,6 +216,7 @@ class MasterMessageProcessor(LocaleMixin):
                         message.reply_to_message.message_id))
                     if dest_msg:
                         destination = dest_msg.slave_origin_uid
+                        assert destination is not None
                         self.chat_dest_cache.set(message.chat.id, destination)
                     else:
                         return self.bot.reply_error(update,
@@ -262,8 +263,8 @@ class MasterMessageProcessor(LocaleMixin):
             m.put_telegram_file(message)
             mtype = m.type_telegram
             # Chat and author related stuff
-            m.author = EFBChat(self.channel).self()
-            m.chat = EFBChat(coordinator.slaves[channel])
+            m.author = ETMChat(self.channel, db=self.db).self()
+            m.chat = ETMChat(coordinator.slaves[channel], db=self.db)
             m.chat.chat_uid = uid
             chat_info = self.db.get_slave_chat_info(channel, uid)
             if chat_info:
@@ -280,19 +281,19 @@ class MasterMessageProcessor(LocaleMixin):
                     trgt_msg.type = MsgType.Text
                     trgt_msg.text = target_log.text
                     trgt_msg.uid = target_log.slave_message_id
-                    trgt_msg.chat = EFBChat(coordinator.slaves[target_channel])
+                    trgt_msg.chat = ETMChat(coordinator.slaves[target_channel], db=self.db)
                     trgt_msg.chat.chat_name = target_log.slave_origin_display_name
                     trgt_msg.chat.chat_alias = target_log.slave_origin_display_name
                     trgt_msg.chat.chat_uid = utils.chat_id_str_to_id(target_log.slave_origin_uid)[1]
                     if target_log.slave_member_uid:
-                        trgt_msg.author = EFBChat(coordinator.slaves[target_channel])
+                        trgt_msg.author = ETMChat(coordinator.slaves[target_channel], db=self.db)
                         trgt_msg.author.chat_name = target_log.slave_member_display_name
                         trgt_msg.author.chat_alias = target_log.slave_member_display_name
                         trgt_msg.author.chat_uid = target_log.slave_member_uid
                     elif target_log.sent_to == 'master':
                         trgt_msg.author = trgt_msg.chat
                     else:
-                        trgt_msg.author = EFBChat(self.channel).self()
+                        trgt_msg.author = ETMChat(self.channel, db=self.db).self()
                 m.target = trgt_msg
 
                 self.logger.debug("[%s] This message replies to another message of the same channel.\n"
