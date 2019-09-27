@@ -113,10 +113,6 @@ A sample config file can be as follows:
     - 102938475
     - 91827364
 
-    # webhook url
-    webhook_url: "https://xxx.com:443"
-    port: 5000
-
     ##################
     # Optional items #
     ##################
@@ -661,7 +657,6 @@ supported languages. Meanwhile, you can help to translate
 this project into your languages on `our Crowdin page`_.
 
 .. _our Crowdin page: https://crowdin.com/project/ehforwarderbot/
-
 
 .. note::
 

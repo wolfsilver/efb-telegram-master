@@ -72,7 +72,6 @@ class MasterMessageProcessor(LocaleMixin):
 
         self.channel_id: ModuleID = self.channel.channel_id
         self.DELETE_FLAG = self.channel.config.get('delete_flag', self.DELETE_FLAG)
-        self.CHAT_CACHE = {}
 
         if self.channel.flag("animated_stickers"):
             self.TYPE_DICT[TGMsgType.AnimatedSticker] = MsgType.Animation

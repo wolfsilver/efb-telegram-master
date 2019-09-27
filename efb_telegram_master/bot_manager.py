@@ -65,7 +65,7 @@ class TelegramBotManager(LocaleMixin):
         self.channel: 'TelegramChannel' = channel
         config = self.channel.config
 
-        req_kwargs = {'read_timeout': 30, 'connect_timeout': 15}
+        req_kwargs = {'read_timeout': 15}
         conf_req_kwargs = config.get('request_kwargs')
         if isinstance(conf_req_kwargs, collections.abc.Mapping):
             req_kwargs.update(conf_req_kwargs)
