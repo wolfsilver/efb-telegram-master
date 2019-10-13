@@ -499,7 +499,8 @@ e.g.:
 
 -   ``animated_stickers`` *(bool)* [Default: ``false``]
 
-    Enable experimental support to animated stickers.
+    Enable experimental support to animated stickers. Note: you might need to
+    install binary dependency ``libcairo`` to enable this feature.
 
 -   ``send_to_last_chat`` *(str)* [Default: ``warn``]
 
@@ -527,7 +528,7 @@ for each of these parameters is 5 seconds.
 The ``connect_timeout`` value controls the timeout for establishing a
 connection to the Telegram server(s).
 
-Changing the defaults of ``read_timeout`` & ``connet_timeout`` can be
+Changing the defaults of ``read_timeout`` & ``connect_timeout`` can be
 done by adjusting values ``request_kwargs`` section in ETM’s
 ``config.yaml``.
 
