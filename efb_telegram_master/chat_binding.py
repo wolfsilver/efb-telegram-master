@@ -222,7 +222,10 @@ class ChatBindingManager(LocaleMixin):
 
         if chat_list is None or chat_list.length == 0:
             # Generate the full chat list first
-            re_filter = re.compile(pattern, re.DOTALL | re.IGNORECASE) if pattern else None
+            try:
+                re_filter = re.compile(pattern, re.DOTALL | re.IGNORECASE) if pattern else None
+            except re.error:
+                re_filter = None
             if pattern:
                 self.logger.debug("Filter pattern: %s", pattern)
             chats: List[ETMChat] = []
@@ -318,7 +321,6 @@ class ChatBindingManager(LocaleMixin):
             int: The next state
         """
 
-        pattern = re.sub(r'[\(\[\]\)]', '', pattern)
         if message_id is None:
             message_id = self.bot.send_message(chat_id, self._("Processing...")).message_id
         self.bot.send_chat_action(chat_id, telegram.ChatAction.TYPING)
