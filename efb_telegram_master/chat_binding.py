@@ -585,7 +585,8 @@ class ChatBindingManager(LocaleMixin):
                 try:
                     chat: ETMChat = ETMChat(
                         chat=self.get_chat_from_db(slave_channel_id, slave_chat_id) or
-                        channel.get_chat(slave_chat_id))
+                        channel.get_chat(slave_chat_id),
+                        db=self.db)
                     msg_text = self._('This group is linked to {0}'
                                       'Send a message to this group to deliver it to the chat.\n'
                                       'Do NOT reply to this system message.') \
@@ -835,8 +836,15 @@ class ChatBindingManager(LocaleMixin):
 
     def chat_migration(self, update: Update, context: CallbackContext):
         message = update.effective_message
-        from_id = ChatID(message.migrate_from_chat_id)
-        to_id = ChatID(message.migrate_to_chat_id)
+        if message.migrate_from_chat_id is not None:
+            from_id = ChatID(message.migrate_from_chat_id)
+            to_id = ChatID(message.chat.id)
+        elif message.migrate_to_chat_id is not None:
+            from_id = ChatID(message.chat.id)
+            to_id = ChatID(message.migrate_to_chat_id)
+        else:
+            # Per ptb filter specs, this part of code should not be reached.
+            return
         from_str = utils.chat_id_to_str(self.channel.channel_id, from_id)
         to_str = utils.chat_id_to_str(self.channel.channel_id, to_id)
         for i in self.db.get_chat_assoc(master_uid=from_str):
