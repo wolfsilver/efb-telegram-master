@@ -51,6 +51,7 @@ class SlaveChatInfo(BaseModel):
     slave_channel_id = TextField()
     slave_channel_emoji = CharField()
     slave_chat_uid = TextField()
+    slave_chat_gid = TextField(null=True)
     slave_chat_name = TextField()
     slave_chat_alias = TextField(null=True)
     slave_chat_type = CharField()
@@ -342,7 +343,8 @@ class DatabaseManager:
 
     @staticmethod
     def get_slave_chat_info(slave_channel_id: Optional[ModuleID] = None,
-                            slave_chat_uid: Optional[ChatID] = None
+                            slave_chat_uid: Optional[ChatID] = None,
+                            slave_chat_gid: Optional[ChatID] = None
                             ) -> Optional[SlaveChatInfo]:
         """
         Get cached slave chat info from database.
@@ -355,7 +357,8 @@ class DatabaseManager:
         try:
             return SlaveChatInfo.select() \
                 .where((SlaveChatInfo.slave_channel_id == slave_channel_id) &
-                       (SlaveChatInfo.slave_chat_uid == slave_chat_uid)).first()
+                       (SlaveChatInfo.slave_chat_uid == slave_chat_uid) &
+                       (SlaveChatInfo.slave_chat_gid == slave_chat_gid)).first()
         except DoesNotExist:
             return None
 
@@ -377,7 +380,11 @@ class DatabaseManager:
         slave_chat_alias = chat_object.chat_alias
         slave_chat_type = chat_object.chat_type.value
 
-        chat_info = self.get_slave_chat_info(slave_channel_id=slave_channel_id, slave_chat_uid=slave_chat_uid)
+        if chat_object.chat is not None:
+            slave_chat_gid = chat_object.chat.chat_uid
+
+        chat_info = self.get_slave_chat_info(slave_channel_id=slave_channel_id, slave_chat_uid=slave_chat_uid,
+            slave_chat_gid=slave_chat_gid)
         if chat_info is not None:
             chat_info.slave_channel_name = slave_channel_name
             chat_info.slave_channel_emoji = slave_channel_emoji
@@ -396,6 +403,7 @@ class DatabaseManager:
                                         slave_channel_name=slave_channel_name,
                                         slave_channel_emoji=slave_channel_emoji,
                                         slave_chat_uid=slave_chat_uid,
+                                        slave_chat_gid=slave_chat_gid,
                                         slave_chat_name=slave_chat_name,
                                         slave_chat_alias=slave_chat_alias,
                                         slave_chat_type=slave_chat_type,
