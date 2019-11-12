@@ -246,6 +246,18 @@ class SlaveMessageProcessor(LocaleMixin):
             tg_chat = tg_chats[0]
         self.logger.debug("[%s] The message should deliver to %s", xid, tg_chat)
 
+        # TODO 如果没有绑定，判断同名的tg群组，自动尝试关联
+        if not tg_chat:
+            t_chat = ETMChat(chat=msg.author, db=self.db)
+            # self.logger.log(99, "auto select t_chat: %s, author: %s", t_chat.__dict__, msg.author.__dict__)
+            master_name = f"{t_chat.chat_alias or t_chat.chat_name}"
+            tg_group = self.db.get_tg_groups(master_name=master_name)
+            if tg_group and len(tg_group) == 1:
+                auto_detect_tg_dest = tg_group[0]
+                tg_chat=utils.chat_id_to_str(self.channel.channel_id, auto_detect_tg_dest)
+                t_chat.link(self.channel.channel_id, auto_detect_tg_dest, self.channel.flag("multiple_slave_chats"))
+                # self.logger.log(99, "auto select tg group: %s", auto_detect_tg_dest)
+
         multi_slaves = False
         if tg_chat:
             slaves = self.db.get_chat_assoc(master_uid=tg_chat)

@@ -668,7 +668,8 @@ class ChatBindingManager(LocaleMixin):
                    "slave_member_uid": None,
                    "slave_member_display_name": None,
                    "slave_message_id": "__chathead__"}
-        self.db.add_msg_log(**msg_log)
+        # self.db.add_msg_log(**msg_log)
+        self.db.add_task(self.db.add_msg_log, tuple(), msg_log)
         self.bot.edit_message_text(text=txt, chat_id=tg_chat_id, message_id=tg_msg_id)
         return ConversationHandler.END
 
@@ -773,7 +774,9 @@ class ChatBindingManager(LocaleMixin):
                 raise EFBChatNotFound()
             chat = ETMChat(chat=chat, db=self.db)
             # self.bot.set_chat_title(tg_chat, chat.chat_title)
-            self.bot.set_chat_title(tg_chat, re.sub('💬. ', '', chat.chat_title))
+            chat_title=f"{chat.chat_alias or chat.chat_name}"
+            self.db.add_tg_groups(master_id=tg_chat, master_name=chat_title)
+            self.bot.set_chat_title(tg_chat, chat_title)
 
             # 将微信群组成员设置为tg群组简介
             description = ''
