@@ -246,18 +246,6 @@ class SlaveMessageProcessor(LocaleMixin):
             tg_chat = tg_chats[0]
         self.logger.debug("[%s] The message should deliver to %s", xid, tg_chat)
 
-        # TODO 如果没有绑定，判断同名的tg群组，自动尝试关联
-        if not tg_chat:
-            t_chat = ETMChat(chat=msg.author, db=self.db)
-            # self.logger.log(99, "auto select t_chat: %s, author: %s", t_chat.__dict__, msg.author.__dict__)
-            master_name = f"{t_chat.chat_alias or t_chat.chat_name}"
-            tg_group = self.db.get_tg_groups(master_name=master_name)
-            if tg_group and len(tg_group) == 1:
-                auto_detect_tg_dest = tg_group[0]
-                tg_chat=utils.chat_id_to_str(self.channel.channel_id, auto_detect_tg_dest)
-                t_chat.link(self.channel.channel_id, auto_detect_tg_dest, self.channel.flag("multiple_slave_chats"))
-                # self.logger.log(99, "auto select tg group: %s", auto_detect_tg_dest)
-
         multi_slaves = False
         if tg_chat:
             slaves = self.db.get_chat_assoc(master_uid=tg_chat)
@@ -406,8 +394,8 @@ class SlaveMessageProcessor(LocaleMixin):
         if msg.path:
             self.logger.debug("[%s] Size of %s is %s.", msg.uid, msg.path, os.stat(msg.path).st_size)
 
-        # if not msg.text:
-        #     msg.text = self._("sent a picture.")
+        if not msg.text:
+            msg.text = self._("sent a picture.")
         try:
             if old_msg_id:
                 if msg.edit_media:
@@ -578,7 +566,7 @@ class SlaveMessageProcessor(LocaleMixin):
 
         if msg.filename is None and msg.path is not None:
             file_name = os.path.basename(msg.path)
-            # msg.text = self._("sent a file.")
+            msg.text = self._("sent a file.")
         else:
             assert msg.filename is not None  # mypy compliance
             file_name = msg.filename
@@ -657,8 +645,8 @@ class SlaveMessageProcessor(LocaleMixin):
                             silent: bool = False) -> telegram.Message:
         assert msg.file is not None
         self.bot.send_chat_action(tg_dest, telegram.ChatAction.UPLOAD_VIDEO)
-        # if not msg.text:
-        #     msg.text = self._("sent a video.")
+        if not msg.text:
+            msg.text = self._("sent a video.")
         try:
             if old_msg_id:
                 if msg.edit_media:

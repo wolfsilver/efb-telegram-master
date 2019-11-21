@@ -71,7 +71,6 @@ class MasterMessageProcessor(LocaleMixin):
         self.logger: logging.Logger = logging.getLogger(__name__)
 
         self.channel_id: ModuleID = self.channel.channel_id
-        self.DELETE_FLAG = self.channel.config.get('delete_flag', self.DELETE_FLAG)
 
         if self.channel.flag("animated_stickers"):
             self.TYPE_DICT[TGMsgType.AnimatedSticker] = MsgType.Animation

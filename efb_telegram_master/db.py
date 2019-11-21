@@ -15,7 +15,6 @@ from ehforwarderbot import utils, EFBChannel, EFBChat, ChatType
 from ehforwarderbot.types import ModuleID, ChatID, MessageID
 from . import ETMChat
 from .utils import TelegramMessageID, TelegramChatID, EFBChannelChatIDStr, TgChatMsgIDStr
-from .chat_destination_cache import ChatDestinationCache
 
 database = SqliteDatabase(None)
 
@@ -29,9 +28,6 @@ class ChatAssoc(BaseModel):
     master_uid = TextField()
     slave_uid = TextField()
 
-class TgGroups(BaseModel):
-    master_id = TextField()
-    master_name = TextField()
 
 class MsgLog(BaseModel):
     master_msg_id = TextField(unique=True, primary_key=True)
@@ -74,7 +70,6 @@ class DatabaseManager:
         self.task_queue: 'Queue[Optional[Tuple[Callable, Sequence[Any], Dict[str, Any]]]]' = Queue()
         self.worker_thread = Thread(target=self.task_worker)
         self.worker_thread.start()
-        self.tg_cache: ChatDestinationCache = ChatDestinationCache('enabled')
 
         if not ChatAssoc.table_exists():
             self._create()
@@ -114,7 +109,7 @@ class DatabaseManager:
         Initializing tables.
         """
         database.execute_sql("PRAGMA journal_mode = OFF")
-        database.create_tables([ChatAssoc, TgGroups, MsgLog, SlaveChatInfo])
+        database.create_tables([ChatAssoc, MsgLog, SlaveChatInfo])
 
     @staticmethod
     def _migrate(i: int):
@@ -220,59 +215,6 @@ class DatabaseManager:
             else:
                 return []
         except DoesNotExist:
-            return []
-
-    def add_tg_groups(self, master_id, master_name):
-        """
-        Add chat associations (chat links).
-        One Master channel with many Slave channel.
-
-        Args:
-            master_uid (str): Master chat UID ("%(chat_id)s")
-            slave_uid (str): Slave channel UID ("%(channel_id)s.%(chat_id)s")
-            multiple_slave: Allow linking to multiple slave channels.
-        """
-        self.remove_tg_groups(master_id=master_id)
-        return TgGroups.create(master_id=master_id, master_name=master_name)
-
-    @staticmethod
-    def remove_tg_groups(master_id):
-        """
-        Remove chat associations (chat links).
-        Only one parameter is to be provided.
-
-        Args:
-            master_uid (str): Master chat UID ("%(chat_id)s")
-            slave_uid (str): Slave channel UID ("%(channel_id)s.%(chat_id)s")
-        """
-        try:
-            return TgGroups.delete().where(TgGroups.master_id == master_id).execute()
-        except DoesNotExist:
-            return 0
-
-    def get_tg_groups(self, master_name):
-        """
-        Get chat association (chat link) information.
-        Only one parameter is to be provided.
-
-        Args:
-            master_uid (str): Master channel UID ("%(chat_id)s")
-            slave_uid (str): Slave channel UID ("%(channel_id)s.%(chat_id)s")
-
-        Returns:
-            list: The counterpart ID.
-        """
-        if self.tg_cache.get(master_name):
-            return []
-        try:
-            masters = TgGroups.select().where(TgGroups.master_name == master_name)
-            if len(masters) > 0:
-                return [i.master_id for i in masters]
-            else:
-                return []
-        except DoesNotExist:
-            # TODO缓存不存在结果，避免持续查db
-            self.tg_cache.set(master_name, True, 300)
             return []
 
     @staticmethod

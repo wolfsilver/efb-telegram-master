@@ -86,7 +86,6 @@ class TelegramBotManager(LocaleMixin):
         self.me: telegram.User = self.updater.bot.get_me()
         self.admins: List[int] = config['admins']
         self.dispatcher: telegram.ext.Dispatcher = self.updater.dispatcher
-        # self.dispatcher.add_handler(WhitelistHandler(self.admins, self.updater))
         # New whitelist handler
         whitelist_filter = ~Filters.user(user_id=self.admins)
         self.dispatcher.add_handler(
