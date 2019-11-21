@@ -1,6 +1,7 @@
 import mimetypes
 import os
 import pickle
+import subprocess
 import tempfile
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
@@ -10,7 +11,7 @@ from PIL import Image
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from typing.io import IO
 
-from ehforwarderbot import EFBMsg, coordinator, MsgType
+from ehforwarderbot import EFBMsg, coordinator, MsgType, ChatType
 from . import utils
 from .chat import ETMChat
 from .msg_type import TGMsgType, get_msg_type
@@ -66,18 +67,6 @@ class ETMMsg(EFBMsg):
             db.add_task(db.set_slave_chat_info, (self.author,), {})
         return pickle.dumps(self)
 
-    @staticmethod
-    def unpickle(data: bytes, db: 'DatabaseManager') -> 'ETMMsg':
-        obj = pickle.loads(data)
-        c_module, c_id = utils.chat_id_str_to_id(obj.chat)
-        a_module, a_id = utils.chat_id_str_to_id(obj.author)
-        obj.chat = ETMChat.from_db_record(c_module, c_id, db)
-        if a_module == c_module and a_id == c_id:
-            obj.author = obj.chat
-        else:
-            obj.author = ETMChat.from_db_record(a_module, a_id, db)
-        return obj
-
     def _load_file(self):
         if self.file_id:
             # noinspection PyUnresolvedReferences
@@ -111,7 +100,7 @@ class ETMMsg(EFBMsg):
                 if channel_id == "blueset.wechat" and v.size[0] > 600:
                     # Workaround: Compress GIF for slave channel `blueset.wechat`
                     # TODO: Move this logic to `blueset.wechat` in the future
-                    os.subprocess.Popen(
+                    subprocess.Popen(
                         ["ffmpeg", "-y", "-i", file.name, '-vf', "scale=600:-2", gif_file.name],
                         bufsize=0
                     ).wait()
@@ -182,14 +171,14 @@ class ETMMsg(EFBMsg):
         target = ETMMsg()
         target.__dict__.update(source.__dict__)
         if not isinstance(target.chat, ETMChat):
-            target.chat = ETMChat(chat=target.chat, db=db)
+            target.chat = ETMChat(db=db, chat=target.chat)
         if not isinstance(target.author, ETMChat):
-            target.author = ETMChat(chat=target.author, db=db)
+            target.author = ETMChat(db=db, chat=target.author)
         if isinstance(target.reactions, dict):
             for i in target.reactions:
                 if any(not isinstance(j, ETMChat) for j in target.reactions[i]):
                     # noinspection PyTypeChecker
-                    target.reactions[i] = list(map(lambda a: ETMChat(chat=a, db=db), target.reactions[i]))
+                    target.reactions[i] = list(map(lambda a: ETMChat(db=db, chat=a), target.reactions[i]))
         return target
 
     def put_telegram_file(self, message: telegram.Message):
@@ -219,3 +208,17 @@ class ETMMsg(EFBMsg):
                 attachment = message.photo[-1]
                 self.file_id = attachment.file_id
                 self.mime = 'image/jpeg'
+
+    @staticmethod
+    def unpickle(data: bytes, db: 'DatabaseManager') -> 'ETMMsg':
+        obj = pickle.loads(data)
+        c_module, c_id = utils.chat_id_str_to_id(obj.chat)
+        a_module, a_id = utils.chat_id_str_to_id(obj.author)
+        obj.chat = ETMChat.from_db_record(db, c_module, c_id)
+        if a_module == c_module and a_id == c_id:
+            obj.author = obj.chat
+        elif obj.chat.chat_type == ChatType.Group:
+            obj.author = ETMChat.from_db_record(db, a_module, a_id, c_id)
+        else:
+            obj.author = ETMChat.from_db_record(db, a_module, a_id)
+        return obj

@@ -1,6 +1,6 @@
 import pickle
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING, Pattern, List, Dict, Any
+from typing import Optional, TYPE_CHECKING, Pattern, List, Dict, Any, Union
 
 from ehforwarderbot import EFBChat, EFBChannel
 from ehforwarderbot.types import ChatID, ModuleID
@@ -19,10 +19,8 @@ class ETMChat(EFBChat):
 
     _last_message_time: Optional[datetime] = None
 
-    def __init__(self,
-                 channel: Optional[EFBChannel] = None,
-                 chat: Optional[EFBChat] = None,
-                 db: 'DatabaseManager' = None):
+    def __init__(self, db: 'DatabaseManager',
+                 chat: Optional[EFBChat] = None, channel: Optional[EFBChannel] = None):
         assert db
         self.db = db
         if channel:
@@ -36,13 +34,13 @@ class ETMChat(EFBChat):
             self.chat_alias = chat.chat_alias
             self.chat_uid = chat.chat_uid
             self.is_chat = chat.is_chat
-            self.members = [ETMChat(chat=i, db=db) for i in chat.members]
-            self.chat = chat.group
+            self.members = [ETMChat(db=db, chat=i) for i in chat.members]
+            self.group = chat.group
             self.vendor_specific = chat.vendor_specific.copy()
 
-    def match(self, pattern: Optional[Pattern]) -> bool:
+    def match(self, pattern: Union[Pattern, str, None]) -> bool:
         """
-        Match the chat against a compiled regular expression
+        Match the chat against a compiled regex pattern or string
         with a string in the following format::
 
             Channel: <Channel name>
@@ -53,11 +51,18 @@ class ETMChat(EFBChat):
             Mode: [Linked]
             Other: <Python Dictionary String>
 
+        If a string is provided instead of compiled regular expression pattern,
+        simple string match is used instead.
+
+        String match is about 5x faster than re.search when there’s no
+        significance of regex used.
+        Ref: https://github.com/blueset/efb-telegram-master/pull/77
+
         Args:
-            pattern: Regular expression
+            pattern: Regex pattern or string to look for
 
         Returns:
-            If the expression is matched using ``pattern.search``.
+            If the pattern is found in the generated string.
         """
         if pattern is None:
             return True
@@ -68,7 +73,10 @@ class ETMChat(EFBChat):
         entry_string = "Channel: %s\nName: %s\nAlias: %s\nID: %s\nType: %s\nMode: %s\nOther: %s" \
                        % (self.module_name, self.chat_name, self.chat_alias, self.chat_uid, self.chat_type,
                           mode_str, self.vendor_specific)
-        return bool(pattern.search(entry_string))
+        if isinstance(pattern, str):
+            return pattern.lower() in entry_string.lower()
+        else:  # pattern is re.Pattern
+            return bool(pattern.search(entry_string))
 
     def unlink(self):
         """ Unlink this chat from any Telegram group."""
@@ -129,8 +137,9 @@ class ETMChat(EFBChat):
         return obj
 
     @staticmethod
-    def from_db_record(module_id: ModuleID, chat_id: ChatID, db: 'DatabaseManager') -> 'ETMChat':
-        c_log = db.get_slave_chat_info(module_id, chat_id)
+    def from_db_record(db: 'DatabaseManager', module_id: ModuleID, chat_id: ChatID,
+                       group_id: ChatID = None) -> 'ETMChat':
+        c_log = db.get_slave_chat_info(module_id, chat_id, group_id)
         if c_log is not None:
             c_pickle = c_log.pickle
             obj = ETMChat.unpickle(c_pickle, db)
