@@ -51,6 +51,7 @@ class SlaveChatInfo(BaseModel):
     slave_channel_id = TextField()
     slave_channel_emoji = CharField()
     slave_chat_uid = TextField()
+    slave_chat_group_id = TextField(null=True)
     slave_chat_name = TextField()
     slave_chat_alias = TextField(null=True)
     slave_chat_type = CharField()
@@ -73,11 +74,14 @@ class DatabaseManager:
         if not ChatAssoc.table_exists():
             self._create()
         else:
-            msg_log_columns = {i.name for i in database.get_columns("MsgLog")}
+            msg_log_columns = {i.name for i in database.get_columns("msglog")}
+            slave_chat_info_columns = {i.name for i in database.get_columns("slavechatinfo")}
             if "file_id" not in msg_log_columns:
                 self._migrate(0)
             elif "pickle" not in msg_log_columns:
                 self._migrate(1)
+            elif "slave_chat_group_id" not in slave_chat_info_columns:
+                self._migrate(2)
 
     def task_worker(self):
         while True:
@@ -128,9 +132,16 @@ class DatabaseManager:
             )
         if i <= 1:
             # Migration 1: Add pickle objects to MsgLog and SlaveChatInfo
+            # 2019JUL24
             migrate(
                 migrator.add_column("msglog", "pickle", MsgLog.pickle),
                 migrator.add_column("slavechatinfo", "pickle", SlaveChatInfo.pickle)
+            )
+        if i <= 2:
+            # Migration 2: Add column for group ID to slave chat info table
+            # 2019NOV18
+            migrate(
+                migrator.add_column("slavechatinfo", "slave_chat_group_id", SlaveChatInfo.slave_chat_group_id)
             )
 
     def add_chat_assoc(self, master_uid: EFBChannelChatIDStr,
@@ -342,7 +353,8 @@ class DatabaseManager:
 
     @staticmethod
     def get_slave_chat_info(slave_channel_id: Optional[ModuleID] = None,
-                            slave_chat_uid: Optional[ChatID] = None
+                            slave_chat_uid: Optional[ChatID] = None,
+                            slave_chat_group_id: Optional[ChatID] = None
                             ) -> Optional[SlaveChatInfo]:
         """
         Get cached slave chat info from database.
@@ -355,7 +367,8 @@ class DatabaseManager:
         try:
             return SlaveChatInfo.select() \
                 .where((SlaveChatInfo.slave_channel_id == slave_channel_id) &
-                       (SlaveChatInfo.slave_chat_uid == slave_chat_uid)).first()
+                       (SlaveChatInfo.slave_chat_uid == slave_chat_uid) &
+                       (SlaveChatInfo.slave_chat_group_id == slave_chat_group_id)).first()
         except DoesNotExist:
             return None
 
@@ -376,8 +389,14 @@ class DatabaseManager:
         slave_chat_name = chat_object.chat_name
         slave_chat_alias = chat_object.chat_alias
         slave_chat_type = chat_object.chat_type.value
+        if chat_object.group is None:
+            slave_chat_group_id = None
+        else:
+            slave_chat_group_id = chat_object.group.chat_uid
 
-        chat_info = self.get_slave_chat_info(slave_channel_id=slave_channel_id, slave_chat_uid=slave_chat_uid)
+        chat_info = self.get_slave_chat_info(slave_channel_id=slave_channel_id,
+                                             slave_chat_uid=slave_chat_uid,
+                                             slave_chat_group_id=slave_chat_group_id)
         if chat_info is not None:
             chat_info.slave_channel_name = slave_channel_name
             chat_info.slave_channel_emoji = slave_channel_emoji
@@ -387,7 +406,7 @@ class DatabaseManager:
                 chat_info.slave_chat_type = slave_chat_type
             if chat_object is not None:
                 if not isinstance(chat_object, ETMChat):
-                    chat_object = ETMChat(chat=chat_object, db=self)
+                    chat_object = ETMChat(db=self, chat=chat_object)
                 chat_info.pickle = chat_object.pickle
             chat_info.save()
             return chat_info
@@ -396,16 +415,18 @@ class DatabaseManager:
                                         slave_channel_name=slave_channel_name,
                                         slave_channel_emoji=slave_channel_emoji,
                                         slave_chat_uid=slave_chat_uid,
+                                        slave_chat_group_id=slave_chat_group_id,
                                         slave_chat_name=slave_chat_name,
                                         slave_chat_alias=slave_chat_alias,
                                         slave_chat_type=slave_chat_type,
                                         pickle=pickle.dumps(chat_object))
 
     @staticmethod
-    def delete_slave_chat_info(slave_channel_id: ModuleID, slave_chat_uid: ChatID):
+    def delete_slave_chat_info(slave_channel_id: ModuleID, slave_chat_uid: ChatID, slave_chat_group_id: ChatID = None):
         return SlaveChatInfo.delete() \
             .where((SlaveChatInfo.slave_channel_id == slave_channel_id) &
-                   (SlaveChatInfo.slave_chat_uid == slave_chat_uid)).execute()
+                   (SlaveChatInfo.slave_chat_uid == slave_chat_uid) &
+                   (SlaveChatInfo.slave_chat_group_id == slave_chat_group_id)).execute()
 
     @staticmethod
     def get_recent_slave_chats(master_chat_id: TelegramChatID, limit=5) -> List[EFBChannelChatIDStr]:
