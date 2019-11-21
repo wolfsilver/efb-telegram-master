@@ -241,7 +241,7 @@ class TelegramChannel(EFBChannel):
                 channel_id, chat_id = etm_utils.chat_id_str_to_id(i)
                 d = self.chat_binding.get_chat_from_db(channel_id, chat_id)
                 if d:
-                    msg += "\n- %s" % ETMChat(chat=d, db=self.db).full_name
+                    msg += "\n- %s" % ETMChat(db=self.db, chat=d).full_name
                 else:
                     msg += self._("\n- {channel_emoji} {channel_name}: Unknown chat ({chat_id})").format(
                         channel_emoji=coordinator.slaves[channel_id].channel_emoji,
@@ -265,7 +265,7 @@ class TelegramChannel(EFBChannel):
                 channel_id, chat_id = etm_utils.chat_id_str_to_id(i)
                 d = self.chat_binding.get_chat_from_db(channel_id, chat_id)
                 if d:
-                    msg += "\n- %s (%s:%s)" % (ETMChat(chat=d, db=self.db).full_name,
+                    msg += "\n- %s (%s:%s)" % (ETMChat(db=self.db, chat=d).full_name,
                                                d.module_id, d.chat_uid)
                 else:
                     if channel_id not in coordinator.slaves:
@@ -362,15 +362,15 @@ class TelegramChannel(EFBChannel):
         channel = coordinator.slaves[channel_id]
 
         if channel.suggested_reactions is None:
-            message.reply_html(self._("The channel involved in this message does not accept reactions. "
+            message.reply_text(self._("The channel involved in this message ({}) does not accept reactions. "
                                       "You cannot react to this message.").format(channel_id))
             return
 
         try:
             chat_obj = channel.get_chat(chat_uid)
         except EFBChatNotFound:
-            message.reply_html(self._("The chat involved in this message ({}) is not found. "
-                                      "You cannot react to this message.").format(channel_id))
+            message.reply_text(self._("The chat involved in this message ({}) is not found. "
+                                      "You cannot react to this message.").format(chat_uid))
             return
 
         if reaction == "-":
