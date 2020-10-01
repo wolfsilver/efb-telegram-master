@@ -1,13 +1,15 @@
 # coding=utf-8
 import html
-from typing import Tuple, Dict, TYPE_CHECKING, List, Any, Union
+import logging
+from typing import Tuple, Dict, TYPE_CHECKING, List, Any, Union, Optional
 
 from telegram import Message, Update
 from telegram.ext import CommandHandler, ConversationHandler, CallbackQueryHandler, MessageHandler, CallbackContext
 from telegram.ext.filters import Filters
 
-from ehforwarderbot import coordinator, EFBChannel, EFBMiddleware
-from ehforwarderbot.message import EFBMsgCommand
+from ehforwarderbot import coordinator, Channel, Middleware
+from ehforwarderbot.channel import SlaveChannel
+from ehforwarderbot.message import MessageCommand
 from ehforwarderbot.types import ExtraCommandName
 from .constants import Flags
 from .locale_mixin import LocaleMixin
@@ -17,12 +19,15 @@ if TYPE_CHECKING:
 
 
 class ETMCommandMsgStorage:
-    def __init__(self, command: List[EFBMsgCommand], module: Union[EFBChannel, EFBMiddleware],
+    def __init__(self, commands: List[MessageCommand], module: Union[Channel, Middleware],
                  prefix: str, body: str):
-        self.commands = command
+        self.commands = commands
         self.module = module
         self.prefix = prefix
         self.body = body
+
+    def __str__(self):
+        return f"ETMCommandMsgStorage({self.commands!r}, {self.module!r}, {self.prefix!r}, {self.body!r})"
 
 
 class CommandsManager(LocaleMixin):
@@ -35,6 +40,7 @@ class CommandsManager(LocaleMixin):
         self.channel: 'TelegramChannel' = channel
         self.bot = channel.bot_manager
         self.msg_storage: Dict[Tuple[int, int], ETMCommandMsgStorage] = dict()
+        self.logger = logging.getLogger(__name__)
 
         self.bot.dispatcher.add_handler(
             CommandHandler("extra", self.extra_listing))
@@ -58,7 +64,7 @@ class CommandsManager(LocaleMixin):
 
         self.bot.dispatcher.add_handler(self.command_conv)
 
-        self.modules_list: List[Any[EFBChannel, EFBMiddleware]] = []
+        self.modules_list: List[Any[SlaveChannel, Middleware]] = []
         for i in sorted(coordinator.slaves.keys()):
             self.modules_list.append(coordinator.slaves[i])
         self.modules_list.extend(coordinator.middlewares)
@@ -68,7 +74,7 @@ class CommandsManager(LocaleMixin):
         self.command_conv.conversations[message_identifier] = Flags.COMMAND_PENDING
         self.msg_storage[message_identifier] = commands
 
-    def command_exec(self, update: Update, context: CallbackContext) -> int:
+    def command_exec(self, update: Update, context: CallbackContext) -> Optional[int]:
         """
         Run a command from a command message.
         Triggered by callback message with status `Flags.COMMAND_PENDING`.
@@ -89,11 +95,13 @@ class CommandsManager(LocaleMixin):
             msg = self._("Invalid parameter: {0}. (CE01)").format(callback)
             self.msg_storage.pop(index, None)
             self.bot.edit_message_text(text=msg, chat_id=chat_id, message_id=message_id)
+            update.callback_query.answer()
             return ConversationHandler.END
         elif not (0 <= int(callback) < len(self.msg_storage[index].commands)):
             msg = self._("Index out of bound: {0}. (CE02)").format(callback)
             self.msg_storage.pop(index, None)
             self.bot.edit_message_text(text=msg, chat_id=chat_id, message_id=message_id)
+            update.callback_query.answer()
             return ConversationHandler.END
 
         callback = int(callback)
@@ -102,27 +110,33 @@ class CommandsManager(LocaleMixin):
         command = command_storage.commands[callback]
         prefix = command_storage.prefix
 
+        self.logger.debug("[%s.%s] Command execution callback is valid. Command storage item: %s", chat_id, message_id, command_storage)
+
         # Clear inline buttons.
         update.callback_query.edit_message_reply_markup(None)
+        self.logger.debug("[%s.%s] Inline buttons cleared", chat_id, message_id)
 
         fn = getattr(module, command.callable_name, None)
         if fn is not None:
             msg = fn(*command.args, **command.kwargs)
         else:
             module_id = str(module)
-            if isinstance(module, EFBChannel):
+            if isinstance(module, Channel):
                 module_id = module.channel_id
-            elif isinstance(module, EFBMiddleware):
+            elif isinstance(module, Middleware):
                 module_id = module.middleware_id
             msg = self._command_fallback(*command.args,  # type: ignore
                                          __channel_id=module_id,
                                          __callable=command.callable_name,
                                          **command.kwargs)
-        self.msg_storage.pop(index, None)
+        self.logger.debug("[%s.%s] Command execution outcome: %s", chat_id, message_id, msg)
+        if msg is not None:
+            self.msg_storage.pop(index, None)
         # self.bot.edit_message_text(prefix=prefix, text=msg,
         #                            chat_id=chat_id, message_id=message_id)
         if msg is None:
-            return ConversationHandler.END
+            update.callback_query.answer()
+            return None
         self.bot.answer_callback_query(
             prefix=prefix, text=msg,
             chat_id=chat_id, message_id=message_id,
@@ -137,7 +151,7 @@ class CommandsManager(LocaleMixin):
         """
         msg = self._("<i>Click the link next to the name for usage.</i>\n")
         for idx, i in enumerate(self.modules_list):
-            if isinstance(i, EFBChannel):
+            if isinstance(i, Channel):
                 msg += "\n\n<b>{0} {1}".format(
                     html.escape(i.channel_emoji),
                     html.escape(i.channel_name))
@@ -145,14 +159,14 @@ class CommandsManager(LocaleMixin):
                     msg += " ({})".format(html.escape(i.instance_id))
                 msg += "</b>"
 
-            elif isinstance(i, EFBMiddleware):
+            elif isinstance(i, Middleware):
                 msg += "\n\n<b>{} ({})</b>".format(
                     html.escape(i.middleware_name),
                     html.escape(i.middleware_id)
                 )
             else:
                 # This should not occur as modules_list shall
-                # consist of only EFBChannel and EFBMiddleware instances
+                # consist of only Channel and Middleware instances
                 continue
             extra_fns = i.get_extra_functions()
             if extra_fns:
@@ -170,7 +184,7 @@ class CommandsManager(LocaleMixin):
     def extra_usage(self, update: Update, context: CallbackContext):
         groupdict = context.match.groupdict()
         if int(groupdict['id']) >= len(self.modules_list):
-            return self.bot.reply_error(update, self._("Invalid module id ID. (XC03)"))
+            return self.bot.reply_error(update, self._("Invalid module ID. (XC03)"))
 
         channel = self.modules_list[int(groupdict['id'])]
         functions = channel.get_extra_functions()
@@ -207,11 +221,10 @@ class CommandsManager(LocaleMixin):
         channel = slaves[sorted(slaves)[int(groupdict['id'])]]
         functions = channel.get_extra_functions()
 
-        command_name = ExtraCommandName(groupdict['command'])
-
         if groupdict['command'] not in functions:
             return self.bot.reply_error(update, self._("Command not found in selected module. (XC02)"))
 
+        # noinspection PyUnresolvedReferences
         header = "{} {}: {}\n-------\n".format(
                 channel.channel_emoji, channel.channel_name,
                 functions[groupdict['command']].name  # type: ignore

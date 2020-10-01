@@ -4,28 +4,28 @@ EFB Telegram Master Channel (ETM)
 .. image:: https://img.shields.io/pypi/v/efb-telegram-master.svg
    :alt: PyPI release
    :target: https://pypi.org/project/efb-telegram-master/
+.. image:: https://github.com/blueset/efb-telegram-master/workflows/Tests/badge.svg
+   :alt: Tests status
+   :target: https://github.com/blueset/efb-telegram-master/actions
+.. image:: https://pepy.tech/badge/efb-telegram-master/month
+   :alt: Downloads per month
+   :target: https://pepy.tech/project/efb-telegram-master
 .. image:: https://d322cqt584bo4o.cloudfront.net/ehforwarderbot/localized.svg
    :alt: Translate this project
    :target: https://crowdin.com/project/ehforwarderbot/
 
-.. image:: https://github.com/blueset/efb-telegram-master/blob/master/banner.png
+.. image:: https://github.com/blueset/efb-telegram-master/raw/master/banner.png
    :alt: Banner
 
 `README in other languages`_.
 
-.. _README in other languages: ./readme_translations
 .. TRANSLATORS: change the URL on previous line as "." (without quotations).
+.. _README in other languages: ./readme_translations
 
 **Channel ID**: ``blueset.telegram``
 
 ETM is a Telegram Master Channel for EH Forwarder Bot, based on Telegram
 Bot API, ``python-telegram-bot``.
-
-Beta version
--------------
-
-This is an unstable beta version, and its functionality may change at any
-time.
 
 Requirements
 ------------
@@ -46,15 +46,16 @@ Getting Started
 
        pip3 install efb-telegram-master
 
-3. Enable ETM in the profile’s ``config.yaml``
+3. Enable and configure ETM using the *EFB configuration wizard*, or enable
+   it manually in the profile’s ``config.yaml``.
 
    The path of your profile storage directory depends on your
    configuration.
 
-   **(As of EFB 2.0.0a1: Default profile storage directory is located at**
+   **(As of EFB 2, default profile storage directory is located at**
    ``~/.ehforwarderbot/profiles/default`` **)**
 
-3. Configure the channel (described as follows)
+4. Configure the channel (manual configure instructions as follows)
 
 Alternative installation methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,10 +68,10 @@ contributed by the community, including:
 
 .. _KeLiu: https://github.com/specter119
 .. _AUR package: https://aur.archlinux.org/packages/python-efb-telegram-master-git
-.. _installation scripts and containers (e.g. Docker): https://github.com/blueset/ehForwarderBot/wiki/Channels-Repository#scripts-and-containers-eg-docker
+.. _installation scripts and containers (e.g. Docker): https://efb-modules.1a23.studio#scripts-and-containers-eg-docker
 
-Configuration
--------------
+Manual Configuration
+--------------------
 
 Set up a bot
 ~~~~~~~~~~~~
@@ -150,8 +151,9 @@ to BotFather for a command list::
     info - Display information of the current Telegram chat.
     chat - Generate a chat head.
     extra - Access additional features from Slave Channels.
-    update_info - Update the group name and profile picture.
+    update_info - Update info of linked Telegram group.
     react - Send a reaction to a message, or show a list of reactors.
+    rm - Remove a message from its remote chat.
 
 .. note::
 
@@ -215,11 +217,14 @@ E.g.: ``/chat Eana`` will give you all chats has the word “Eana”.
 ::
 
     Channel: <Channel name>
+    Channel ID: <Channel ID>
     Name: <Chat name>
-    Alias: <Chat Alias>
+    Alias: (<Chat Alias>|None)
     ID: <Chat Unique ID>
-    Type: (User|Group)
+    Type: (Private|Group|System)
     Mode: [Linked]
+    Description: <Description>
+    Notification: (ALL|MENTION|NONE)
     Other: <Python Dictionary String>
 
 
@@ -234,7 +239,7 @@ E.g.: ``/chat Eana`` will give you all chats has the word “Eana”.
 Examples:
 
 -  Look for all WeChat groups: ``Channel: WeChat.*Type: Group``
--  Look for everyone who has an alias ``Name: (.*?)\nAlias: (?!\1)``
+-  Look for everyone who has no alias (and those with an alias called “None”): ``Alias: None``
 -  Look for all entries contain “John” and “Johnny” in any order:
    ``(?=.*John)(?=.*Johnny)``
 
@@ -256,7 +261,14 @@ What is NOT supported:
 
 -  @ reference
 -  Markdown/HTML formatting
--  Messages with unsupported types
+-  Inline buttons
+-  Messages with unsupported types.
+
+.. note::
+
+    This only applies to Telegram groups that are linked to a single remote
+    chat, groups that are linked with multiple remote chats shall work in the
+    same way as non-linked chats.
 
 Send to a non-linked chat
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -271,7 +283,9 @@ channel, everything else is supported as it does in a linked chat.
 Quick reply in non-linked chats
 '''''''''''''''''''''''''''''''
 ETM provides a mechanism that allow you to keep sending messages to the same
-recipient without quoting every single time.
+recipient without quoting every single time. ETM will store the remote chat you
+sent a message to in every Telegram chat (i.e. a Telegram group or the bot),
+which is known as the “last known recipient” of the Telegram chat.
 
 In case where recipient is not indicated for a message, ETM will try to deliver
 it to the “last known recipient” in the Telegram chat only if:
@@ -286,13 +300,17 @@ Edit and delete message
 In EFB v2, the framework added support to message editing and removal,
 and so does ETM. However, due to the limitation of Telegram Bot API,
 although you may have selected “Delete for the bot”, or “Delete for
-everyone” while deleting messages, the bot would not know anything about
-it. Therefore, if you want your message to be removed from a remote
-chat, edit your message and prepend it with rm\` (it’s R, M, and ~\`,
-not single quote), so that the bot knows that you want to delete the
-message.
+everyone” while deleting messages, the bot would **not** know anything 
+about it. Therefore, if you want your message to be removed from a 
+remote chat, edit your message and prepend it with ``rm``` 
+(it’s ``R``, ``M``, and ``~```, not single quote), so that the bot knows 
+that you want to delete the message.
 
-Please also notice that some channels may not support editing and/or
+Alternatively, you can also reply ``/rm`` to a message to remove it from its
+remote chat. This can be useful when you cannot edit the message directly
+(sticker, location, etc.), or when the message is not sent via ETM.
+
+Please also notice that some slave channels may not support editing and/or
 deleting messages depends on their implementations.
 
 ``/chat``: Chat head
@@ -327,11 +345,13 @@ called like an CLI utility. (of course, advanced features like
 piping etc would not be supported)
 
 
-``/update_info``: Update name and profile picture of linked group
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``/update_info``: Update details of linked Telegram group
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ETM can help you to update the name and profile picture of a group to
-match with appearance in the remote chat.
+match with appearance in the remote chat. This will also add a list of
+current members to the Telegram group description if the remote chat is
+a group.
 
 This functionality is available when:
 
@@ -356,6 +376,19 @@ Note that some slave channels may not accept message reactions, and
 some channels have a limited reactions you can send with. Usually
 when you send an unaccepted reaction, slave channels can provide
 a list of suggested reactions you may want to try instead.
+
+``/rm``: Delete a message from its remote chat
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can reply ``/rm`` to a message to remove it from its remote chat.
+Comparing to prepending ``rm``` to a message, you can use this command
+even when you cannot edit the message directly (sticker, location, 
+etc.), or when the message is not sent via ETM. It can also allow you
+to remove messages sent by others if provided by the slave channel. 
+
+Please notice that some slave channels may not support removing messages 
+depends on their implementations.
+
 
 Telegram Channel support
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -421,8 +454,8 @@ Bot framework, ETM has the following limitations:
 - Some components in messages from slave channels are dropped:
     - @ references not referring to you.
 - The Telegram bot can only
-    - send you any file up to 50 MiB,
-    - receive file from you up to 20 MiB.
+    - send you any file up to 50 MB,
+    - receive file from you up to 20 MB.
 
 
 Experimental flags
@@ -463,7 +496,7 @@ e.g.:
 
 -  ``auto_locale`` *(str)* [Default: ``true``]
 
-   Detect the locale from admin’s messages automatically. Locale
+   Detect the locale from admins’ messages automatically. Locale
    defined in environment variables will be used otherwise.
 
 -   ``retry_on_error`` *(bool)* [Default: ``false``]
@@ -499,8 +532,10 @@ e.g.:
 
 -   ``animated_stickers`` *(bool)* [Default: ``false``]
 
-    Enable experimental support to animated stickers. Note: you might need to
-    install binary dependency ``libcairo`` to enable this feature.
+    Enable experimental support to animated stickers. Note: you need to
+    install binary dependency ``libcairo`` on your own, and additional
+    Python dependencies via ``pip3 install "efb-telegram-master[tgs]"``
+    to enable this feature.
 
 -   ``send_to_last_chat`` *(str)* [Default: ``warn``]
 
@@ -510,6 +545,14 @@ e.g.:
     - ``warn``: Enable this feature and issue warnings every time when you
       switch a recipient with quick reply.
     - ``disabled``: Disable this feature.
+
+-   ``default_media_prompt`` *(str)* [Default: ``emoji``]
+
+    Placeholder text when the a picture/video/file message has no caption.
+
+    - ``emoji``: Use emoji like 🖼️, 🎥, and 📄.
+    - ``text``: Use text like “Sent a picture/video/file”.
+    - ``disabled``: Use empty placeholders.
 
 Network configuration: timeout tweaks
 -------------------------------------
@@ -621,16 +664,16 @@ documentation on xmlrpc`__.
 
 __ https://docs.python.org/3/library/xmlrpc.html
 
-.. _the db (database manager) class: https://github.com/blueset/efb-telegram-master/blob/master/efb_telegram_master/db.py
-.. _the RPCUtilities class: https://github.com/blueset/efb-telegram-master/blob/master/efb_telegram_master/rpc_utilities.py
+.. _the db (database manager) class: https://etm.1a23.studio/blob/master/efb_telegram_master/db.py
+.. _the RPCUtilities class: https://etm.1a23.studio/blob/master/efb_telegram_master/rpc_utilities.py
 
 License
 -------
 
 ETM is licensed under `GNU Affero General Public License 3.0`_ or later versions::
 
-    EFB Telegram Master Channel: An slave channel for EH Forwarder Bot.
-    Copyright (C) 2016 - 2019 Eana Hufwe, and the EFB Telegram Master Channel contributors
+    EFB Telegram Master Channel: A master channel for EH Forwarder Bot.
+    Copyright (C) 2016 - 2020 Eana Hufwe, and the EFB Telegram Master Channel contributors
     All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
