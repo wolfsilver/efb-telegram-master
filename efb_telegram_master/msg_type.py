@@ -20,6 +20,8 @@ class TGMsgType(Enum):
     Game = "Game"
     VideoNote = "Video_note"
     Animation = "Animation"
+    Poll = "Poll"
+    Dice = "Dice"
 
 
 def get_msg_type(msg: telegram.Message) -> TGMsgType:
@@ -48,7 +50,9 @@ def get_msg_type(msg: telegram.Message) -> TGMsgType:
              'location',
              'venue',
              'game',
-             'video_note']
+             'video_note',
+             'poll',
+             'dice']
     for i in types:
         if getattr(msg, i, False):
             tg_type = TGMsgType(i.capitalize())

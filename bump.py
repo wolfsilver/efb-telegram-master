@@ -51,7 +51,7 @@ def bump_version(v: version.Version, level: str) -> str:
         else:
             release[segments - 1] += 1
         release[segments:] = [0] * max(len(release) - segments, 0)
-        stage = pre = post = dev = None
+        stage = pre = post = dev = None  # lgtm [py/unused-local-variable]
     elif level == "alpha":
         if stage is None:
             if dev is None:
@@ -126,7 +126,7 @@ def main():
 
     new_ver = bump_version(v, args.level)
 
-    bump_message = f"Bumping version: {source[1]} -> {new_ver}"
+    bump_message = f"bump: bumping version: {source[1]} -> {new_ver}"
 
     print(bump_message)
 
@@ -155,7 +155,7 @@ def main():
         subprocess.check_output(["git", "commit", "-S", "-m", bump_message])
 
         if args.tag:
-            subprocess.check_output(["git", "tag", new_ver])
+            subprocess.check_output(["git", "tag", "-s", f"v{new_ver}", "-m", f"Release version {new_ver}"])
 
 
 if __name__ == "__main__":

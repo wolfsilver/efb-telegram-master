@@ -3,7 +3,8 @@ import os
 from setuptools import setup, find_packages
 
 if sys.version_info < (3, 6):
-    raise Exception("Python 3.6 or higher is required. Your version is %s." % sys.version)
+    raise Exception(
+        "Python 3.6 or higher is required. Your version is %s." % sys.version)
 
 version_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             'efb_telegram_master/__version__.py')
@@ -13,15 +14,20 @@ exec(open(version_path).read())
 
 long_description = open('README.rst').read()
 
+tests_require = ["pytest", "telethon", "cryptg", "pytest-dotenv", "flaky",
+                 "pytest-asyncio", "mypy", "pytest-html", "doit", "PySocks",
+                 "coverage", "sphinx"]
+
 setup(
     name='efb-telegram-master',
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages=find_packages(
+        exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     version=__version__,
     description='Telegram Master Channel for EH Forwarder Bot, based on Telegram Bot API.',
     long_description=long_description,
     author='Eana Hufwe',
     author_email='ilove@1a23.com',
-    url='https://github.com/blueset/efb-telegram-master',
+    url='https://etm.1a23.studio',
     license='AGPLv3+',
     include_package_data=True,
     python_requires='>=3.6',
@@ -38,11 +44,12 @@ setup(
         "Topic :: Communications :: Chat",
         "Topic :: Utilities"
     ],
+    tests_require=tests_require,
     install_requires=[
-        "ehforwarderbot>=2.0.0b18",
-        "python-telegram-bot>=12.1.0",
+        "ehforwarderbot>=2.0.0",
+        "python-telegram-bot>=12.8",
         "python-magic",
-        "moviepy",
+        "ffmpeg-python",
         "peewee",
         "requests",
         "pydub",
@@ -53,9 +60,15 @@ setup(
         "bullet",
         "cjkwrap",
         "humanize",
-        "tgs",
-        "cairosvg",  # required by ``tgs`` to export GIF
+        "typing-extensions>=3.7.4.1",
     ],
+    extras_require={
+        "tests": tests_require,
+        "tgs": [
+            "lottie",
+            "cairosvg",  # required by ``lottie`` to export GIF
+        ],
+    },
     entry_points={
         "ehforwarderbot.master": "blueset.telegram = efb_telegram_master:TelegramChannel",
         "ehforwarderbot.wizard": "blueset.telegram = efb_telegram_master.wizard:wizard"

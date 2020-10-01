@@ -1,17 +1,18 @@
 import shutil
 from getpass import getpass
 from gettext import translation
+from typing import Optional
 
-from PIL import Image
+from PIL import Image, WebPImagePlugin
 from bullet import YesNo, Numbers, Bullet
 from pkg_resources import resource_filename
 
-import bullet
 import cjkwrap
 from ruamel.yaml import YAML
 from telegram import Bot, TelegramError
 from telegram.ext.filters import Filters
 from telegram.ext import MessageHandler, Updater
+from telegram.utils.request import Request
 
 from ehforwarderbot import coordinator, utils
 from ehforwarderbot.types import ModuleID
@@ -35,9 +36,11 @@ ngettext = translator.ngettext
 
 class DataModel:
     data: dict
+    request: Optional[Request] = None
     building_default = False
 
     def __init__(self, profile: str, instance_id: str):
+        print("==== etm_wizard, data mod, init", profile)
         coordinator.profile = profile
         self.profile = profile
         self.instance_id = instance_id
@@ -64,8 +67,8 @@ class DataModel:
     def save(self):
         if self.building_default:
             with self.config_path.open('w') as f:
-                # TRANSLATORS: This part of text must be formatted in a monospaced font and no line shall exceed the width of a 70-cell-wide terminal.
                 f.write(_(
+                    # TRANSLATORS: This part of text must be formatted in a monospaced font and no line shall exceed the width of a 70-cell-wide terminal.
                     "# ======================================\n"
                     "# EFB Telegram Master Configuration file\n"
                     "# ======================================\n"
@@ -83,8 +86,8 @@ class DataModel:
                 f.write("\n")
                 self.yaml.dump({"token": self.data['token']}, f)
                 f.write("\n")
-                # TRANSLATORS: This part of text must be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                 f.write(_(
+                    # TRANSLATORS: This part of text must be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                     "# [List of Admin User IDs]\n"
                     "# ETM will only process messages and commands from users\n"
                     "# listed below.  This ID can be obtained from various ways \n"
@@ -93,8 +96,8 @@ class DataModel:
                 f.write("\n")
                 self.yaml.dump({"admins": self.data['admins']}, f)
                 f.write("\n")
-                # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                 f.write(_(
+                    # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                     "# Optional items\n"
                     "# --------------\n"
                     "#\n"
@@ -103,23 +106,24 @@ class DataModel:
                     "# These features may be changed or removed at any time.\n"
                     "# Refer to the project documentation for details.\n"
                     "#\n"
-                    "# https://github.com/blueset/efb-telegram-master\n"
+                    "# https://etm.1a23.studio\n"
                 ))
                 f.write("\n")
                 self.yaml.dump({"flags": self.data['flags']}, f)
                 f.write("\n")
 
-                # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                 f.write(_(
+                    # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                     "# [Network configurations]\n"
                     "# Timeout tweaks, Proxy, etc.\n"
                     "# Refer to the project documentation for details.\n"
                     "#\n"
-                    "# https://github.com/blueset/efb-telegram-master\n"
+                    "# https://etm.1a23.studio\n"
                 ))
                 f.write("\n")
                 if self.data.get('request_kwargs'):
-                    self.yaml.dump({"request_kwargs": self.data['request_kwargs']}, f)
+                    self.yaml.dump(
+                        {"request_kwargs": self.data['request_kwargs']}, f)
                 else:
                     f.write(
                         "# request_kwargs:\n"
@@ -136,14 +140,14 @@ class DataModel:
                     )
                 f.write("\n")
 
-                # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                 f.write(_(
+                    # TRANSLATORS: This part of text mst be formatted in a monospaced font.and no line shall exceed the width of a 70-cell-wide terminal.
                     "# [RPC interface]\n"
                     "# Enable RPC interface of ETM where you can use scripts to manage data stored\n"
                     "# in the ETM message database or make queries.\n"
                     "# Refer to the project documentation for details.\n"
                     "#\n"
-                    "# https://github.com/blueset/efb-telegram-master\n"
+                    "# https://etm.1a23.studio\n"
                 ))
                 f.write("\n")
                 if self.data.get('rpc'):
@@ -163,7 +167,7 @@ class DataModel:
                 self.yaml.dump(self.data, f)
 
 
-def input_bot_token(default=None):
+def input_bot_token(data: DataModel, default=None):
     prompt = _("Your Telegram Bot token: ")
     if default:
         prompt += f"[{default}] "
@@ -177,12 +181,54 @@ def input_bot_token(default=None):
                 continue
         else:
             try:
-                Bot(ans).get_me()
+                Bot(ans, request=data.request).get_me()
             except TelegramError as e:
                 print_wrapped(str(e))
+                print()
                 print(_("Please try again."))
                 continue
             return ans
+
+
+def setup_proxy(data):
+    if YesNo(prompt=_("Do you want to run ETM behind a proxy? "),
+             prompt_prefix="[yN] ").launch(default='n'):
+        if data.data.get('request_kwargs') is None:
+            data.data['request_kwargs'] = {}
+        proxy_type = Bullet(prompt=_("Select proxy type"),
+                            choices=['http', 'socks5']).launch()
+        host = input(_("Proxy host (domain/IP): "))
+        port = input(_("Proxy port: "))
+        username = None
+        password = None
+        if YesNo(prompt=_("Does it require authentication? "),
+                 prompt_prefix="[yN] ").launch(default='n'):
+            username = input(_("Username: "))
+            password = getpass(_("Password: "))
+        if proxy_type == 'http':
+            data.data['request_kwargs']['proxy_url'] = f"http://{host}:{port}/"
+            if username is not None and password is not None:
+                data.data['request_kwargs']['username'] = username
+                data.data['request_kwargs']['password'] = password
+        elif proxy_type == 'socks5':
+            try:
+                import socks
+            except ModuleNotFoundError as e:
+                print_wrapped(_("You have not installed required extra package "
+                                "to use SOCKS5 proxy, please install with the "
+                                "following command:"))
+                print()
+                print("pip install 'python-telegram-bot[socks]'")
+                print()
+                raise e
+            protocol = input(_("Protocol [socks5]: ")) or "socks5"
+            data.data['request_kwargs']['proxy_url'] = f"{protocol}://{host}:{port}"
+            if username is not None and password is not None:
+                data.data['request_kwargs']['urllib3_proxy_kwargs'] = {
+                    "username": username,
+                    "password": password
+                }
+        data.request = Request(**data.data['request_kwargs'])
 
 
 def setup_telegram_bot(data):
@@ -195,7 +241,7 @@ def setup_telegram_bot(data):
     if data.data['token']:
         # Config has token ready.
         # Assuming user doesn't need help creating one
-        data.data['token'] = input_bot_token(data.data['token'])
+        data.data['token'] = input_bot_token(data, data.data['token'])
     else:
         # No config is ready.
         # prompt to guide user to create one.
@@ -203,8 +249,8 @@ def setup_telegram_bot(data):
         prompt_yes = _("Yes, please tell me how to make one.")
         prompt_no = _("No, I have already made one according to the docs.")
 
-        choices = bullet.Bullet(prompt=_("Do you need help creating a bot?"),
-                                choices=[prompt_no, prompt_yes])
+        choices = Bullet(prompt=_("Do you need help creating a bot?"),
+                         choices=[prompt_no, prompt_yes])
         answer = choices.launch()
 
         if answer == prompt_yes:
@@ -239,28 +285,41 @@ def setup_telegram_bot(data):
                 "\n"
                 "Send /setprivacy to BotFather, choose the bot you just "
                 "created, then choose “Disable”. This will allow your bot to "
-                "process all messages in groups it joined, not just commands.\n"
-                "\n"
-                "Send /setcommands to BotFather, choose the bot you just "
-                "created, then copy and paste the following few lines to "
-                "BotFather. This will allow your bot to give you a list of "
-                "commands when you need them."
-            ))
-            print()
-            print(_(
-                "help - Show commands list.\n"
-                "link - Link a remote chat to a group.\n"
-                "unlink_all - Unlink all remote chats from a group.\n"
-                "info - Display information of the current Telegram chat.\n"
-                "chat - Generate a chat head.\n"
-                "extra - Access additional features from Slave Channels.\n"
-                "update_info - Update the group name and profile picture.\n"
-                "react - Send a reaction to a message, or show a list of reactors."
+                "process all messages in groups it joined, not just commands."
             ))
             print()
             input(_("Press ENTER/RETURN to continue..."))
         print()
-        data.data['token'] = input_bot_token()
+        data.data['token'] = input_bot_token(data)
+
+
+def setup_telegram_bot_commands_list(data):
+    prompt_yes = _("Yes, please update.")
+    prompt_no = _("No, I want to keep the old commands list.")
+
+    choices = Bullet(prompt=_("Do you want to update the list of commands of your bot?"),
+                     choices=[prompt_yes, prompt_no])
+    answer = choices.launch()
+
+    if answer == prompt_yes:
+        print(_("Updating commands list..."), end="", flush=True)
+        Bot(data.data['token'], request=data.request).set_my_commands(
+            [
+                ("help", _("Show commands list.")),
+                ("link", _("Link a remote chat to a group.")),
+                ("unlink_all", _("Unlink all remote chats from a group.")),
+                ("info", _("Display information of the current Telegram chat.")),
+                ("chat", _("Generate a chat head.")),
+                ("extra", _("Access additional features from Slave Channels.")),
+                ("update_info", _("Update info of linked Telegram group.")),
+                ("react", _("Send a reaction to a message, or show a list of reactors.")),
+                ("rm", _("Remove a message from its remote chat.")),
+            ]
+        )
+
+        print(_("OK"))
+        print()
+        input(_("Press ENTER/RETURN to continue..."))
 
 
 def input_admin_ids(default=None):
@@ -301,18 +360,21 @@ def setup_admins(data):
         prompt_yes = _("Yes, I want to know how to get my ID.")
         prompt_no = _("No, I already know my ID.")
 
-        choices = bullet.Bullet(prompt=_("Do you need help getting your ID?"),
-                                choices=[prompt_no, prompt_yes])
+        choices = Bullet(prompt=_("Do you need help getting your ID?"),
+                         choices=[prompt_no, prompt_yes])
         answer = choices.launch()
 
         if answer == prompt_yes:
             print(_("Starting ID bot..."), end="", flush=True)
 
-            updater = Updater(token=data.data['token'])
+            updater = Updater(token=data.data['token'],
+                              request_kwargs=data.data.get(
+                                  'request_kwargs', None),
+                              use_context=True)
             updater.dispatcher.add_handler(
                 MessageHandler(
                     Filters.all,
-                    lambda bot, update:
+                    lambda update, context:
                     update.effective_message.reply_text(
                         _("Your Telegram user ID is {id}.").format(
                             id=update.effective_user.id
@@ -365,7 +427,7 @@ flags_settings = {
          ),
     "auto_locale":
         (True, 'bool', None,
-         _('Detect the locale from admin’s messages automatically. Locale '
+         _('Detect the locale from admins’ messages automatically. Locale '
            'defined in environment variables will be used otherwise.')
          ),
     "retry_on_error":
@@ -403,6 +465,23 @@ flags_settings = {
          _('Enable experimental support to animated stickers. Note: you might '
            'need to install binary dependency "libcairo" to enable this '
            'feature.')
+         ),
+    "send_to_last_chat":
+        ("warn", 'choices', ["enabled", "warn", "disabled"],
+         _('Enable quick reply in non-linked chats.\n'
+           '\n'
+           '- enabled: Enable this feature without warning.\n'
+           '- warn: Enable this feature and issue warnings every time when you '
+           'switch a recipient with quick reply.\n'
+           '- disabled: Disable this feature.')
+         ),
+    "default_media_prompt":
+        ("emoji", 'choices', ["emoji", "text", "disabled"],
+         _('Placeholder text when the a picture/video/file message has no caption.\n'
+           '\n'
+           '- emoji: Use emoji like 🖼️, 🎥, and 📄.\n'
+           '- text: Use text like “Sent a picture/video/file”.\n'
+           '- disabled: Use empty placeholders.')
          )
 }
 
@@ -433,22 +512,27 @@ def setup_experimental_flags(data):
             print()
             print(key)
             print_wrapped(desc)
-            ans = Numbers(prompt=f"{key} [{default}]? ") \
+            ans = Numbers(prompt=f"{key} [{default}]? ", type=int) \
                 .launch(default=default)
             data.data['flags'][key] = ans
         elif cat == 'choices':
+            try:
+                assert isinstance(params, list)
+                default = params.index(default)
+            except ValueError:
+                default = 0
             print()
             print(key)
             print_wrapped(desc)
             ans = Bullet(prompt=f"{key}?", choices=params) \
-                .launch(default=default)
+                .launch(default=params.index(default))
             data.data['flags'][key] = ans
 
 
 def setup_network_configurations(data):
     print()
     proceed = YesNo(prompt=_("Do you want to adjust network configurations? "
-                             "(connection timeout and proxy) "),
+                             "(connection timeout) "),
                     prompt_prefix="[yN] ").launch(default='n')
     if not proceed:
         return
@@ -458,7 +542,7 @@ def setup_network_configurations(data):
         "consult the module documentations."
     ))
     print()
-    print("https://github.com/blueset/efb-telegram-master/")
+    print("https://etm.1a23.studio/")
     print()
 
     if YesNo(prompt=_("Do you want to change timeout settings? "),
@@ -470,43 +554,6 @@ def setup_network_configurations(data):
         data.data['request_kwargs']['connect_timeout'] = \
             Numbers(prompt=_("connect_timeout (in seconds): ")).launch()
 
-    if YesNo(prompt=_("Do you want to run ETM behind a proxy? "),
-             prompt_prefix="[yN] ").launch(default='n'):
-        if data.data.get('request_kwargs') is None:
-            data.data['request_kwargs'] = {}
-        proxy_type = Bullet(prompt=_("Select proxy type"),
-                            choices=['http', 'socks5']).launch()
-        host = input(_("Proxy host (domain/IP): "))
-        port = input(_("Proxy port: "))
-        username = None
-        password = None
-        if YesNo(prompt=_("Does it require authentication?"),
-                 prompt_prefix="[yN] ").launch(default='n'):
-            username = input(_("Username: "))
-            password = getpass(_("Password: "))
-        if proxy_type == 'http':
-            data.data['request_kwargs']['proxy_url'] = f"http://{host}:{port}/"
-            if username is not None and password is not None:
-                data.data['request_kwargs']['username'] = username
-                data.data['request_kwargs']['password'] = password
-        elif proxy_type == 'socks5':
-            try:
-                import socks
-            except ModuleNotFoundError as e:
-                print_wrapped(_("You have not installed required extra package "
-                                "to use SOCKS5 proxy, please install with the "
-                                "following command:"))
-                print()
-                print("pip install python-telegram-bot[socks]")
-                print()
-                raise e
-            data.data['request_kwargs']['proxy_url'] = f"socks5://{host}:{port}"
-            if username is not None and password is not None:
-                data.data['request_kwargs']['urllib3_proxy_kwargs'] = {
-                    "username": username,
-                    "password": password
-                }
-
 
 def setup_rpc(data):
     print()
@@ -515,7 +562,7 @@ def setup_rpc(data):
         "visit the module documentations."
     ))
     print()
-    print("https://github.com/blueset/efb-telegram-master/")
+    print("https://etm.1a23.studio/")
     print()
 
     proceed = YesNo(prompt=_("Do you want to enable RPC interface? "),
@@ -558,7 +605,7 @@ def prerequisites_check():
 
     print(_("Checking libwebp installation..."), end="", flush=True)
     Image.init()
-    if 'WEBP' not in Image.ID:
+    if 'WEBP' not in Image.ID or not getattr(WebPImagePlugin, "SUPPORTED", None):
         print(_("FAILED"))
         print_wrapped(_("libwebp plugin is not detected by Pillow."))
         exit(1)
@@ -581,7 +628,9 @@ def wizard(profile, instance_id):
         "(ETM). This would be really fast and simple."
     ))
     print()
+    setup_proxy(data)
     setup_telegram_bot(data)
+    setup_telegram_bot_commands_list(data)
     setup_admins(data)
     setup_experimental_flags(data)
     setup_network_configurations(data)
