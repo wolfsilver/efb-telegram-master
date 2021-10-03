@@ -15,8 +15,8 @@ exec(open(version_path).read())
 long_description = open('README.rst').read()
 
 tests_require = ["pytest", "telethon", "cryptg", "pytest-dotenv", "flaky",
-                 "pytest-asyncio", "mypy", "pytest-html", "doit", "PySocks",
-                 "coverage", "sphinx"]
+                 "pytest-asyncio", "mypy>=0.910", "pytest-html", "doit",
+                 "PySocks", "coverage", "sphinx"]
 
 setup(
     name='efb-telegram-master',
@@ -47,7 +47,7 @@ setup(
     tests_require=tests_require,
     install_requires=[
         "ehforwarderbot>=2.0.0",
-        "python-telegram-bot>=12.8",
+        "python-telegram-bot~=13.4",
         "python-magic",
         "ffmpeg-python",
         "peewee",
@@ -57,7 +57,7 @@ setup(
         "pillow",
         "language-tags",
         "retrying",
-        "bullet",
+        "bullet>=2.2.0",
         "cjkwrap",
         "humanize",
         "typing-extensions>=3.7.4.1",

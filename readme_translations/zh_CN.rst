@@ -6,8 +6,8 @@ EFB Telegram 主端（ETM）
    :target: https://pypi.org/project/efb-telegram-master/
    :alt: PyPI release
 
-.. image:: https://github.com/blueset/efb-telegram-master/workflows/Tests/badge.svg
-   :target: https://github.com/blueset/efb-telegram-master/actions
+.. image:: https://github.com/ehForwarderBot/efb-telegram-master/workflows/Tests/badge.svg
+   :target: https://github.com/ehForwarderBot/efb-telegram-master/actions
    :alt: Tests status
 
 .. image:: https://pepy.tech/badge/efb-telegram-master/month
@@ -18,7 +18,7 @@ EFB Telegram 主端（ETM）
    :target: https://crowdin.com/project/ehforwarderbot/
    :alt: Translate this project
 
-.. image:: https://github.com/blueset/efb-telegram-master/raw/master/banner.png
+.. image:: https://github.com/ehForwarderBot/efb-telegram-master/raw/master/banner.png
    :alt: Banner
 
 `其他语言的 README <./readme_translations>`_。
@@ -488,10 +488,8 @@ ETM 不能：
 
 * ``animated_stickers`` *(bool)* [默认值: ``false``]
 
-  Enable experimental support to animated stickers. Note: you need to
-  install binary dependency ``libcairo`` on your own, and additional
-  Python dependencies via ``pip3 install "efb-telegram-master[tgs]"``
-  to enable this feature.
+  启用对动画贴纸的实验性支持。注意：您需要自行安装二进制依赖 ``libcairo``，并通过 ``pip3 install
+  "efb-telegram-master[tgs]"`` 安装额外的 Python 软件包依赖，才能启用此功能。
 
 * ``send_to_last_chat`` *(str)* [默认值: ``warn``]
 
@@ -503,16 +501,15 @@ ETM 不能：
 
   * ``disabled``：禁用此功能。
 
-* ``default_media_prompt`` *(str)* [Default: ``emoji``]
+* ``default_media_prompt`` *(str)* [默认值：``emoji``]
 
-  Placeholder text when the a picture/video/file message has no
-  caption.
+  当图片/视频/文件消息没有标题时使用的占位符文本。
 
-  * ``emoji``: Use emoji like 🖼️, 🎥, and 📄.
+  * ``emoji``：使用 emoji， 如 🖼️、🎥 和 📄。
 
-  * ``text``: Use text like “Sent a picture/video/file”.
+  * ``text``：使用文本，如「发送了图片/视频/文件」。
 
-  * ``disabled``: Use empty placeholders.
+  * ``disabled``：使用空占位符。
 
 
 网络配置：超时调整

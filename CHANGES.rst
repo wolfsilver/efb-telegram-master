@@ -25,6 +25,52 @@ Removed
 
 Fixed
 -----
+- Attempt to fix “Database is Locked” issue. (`#110`_ by whtsky)
+- Telegram GIF image processing may trigger an early download
+
+2.2.4_ - 2021-05-22
+===================
+
+Changed
+-------
+- Updated to follow ``python-telegram-bot`` 13.4 API changes
+
+Fixed
+-----
+- Fix issue where edited messages in non-singly-linked channels are
+  mistakenly attached with quoted messages.
+- Allow cases when ``flags`` in config file is set to null
+- Incomplete chat link migration upon conversion to supergroup
+
+2.2.3_ - 2021-02-12
+===================
+
+Changed
+-------
+- Updated type hints to follow new ``python-telegram-bot`` (PTB) changes.
+- Locked PTB version to 13.x for their upcoming migration to async.
+
+Fixed
+-----
+- Update message and caption format serialization from ``markdown`` to
+  ``markdown_v2``.
+- Fixed yet another typo causing wizard to crash
+
+2.2.2_ - 2020-12-04
+===================
+
+Fixed
+-----
+- Following the latest Bullet API change which caused setup wizard to crash
+
+
+2.2.1_ - 2020-11-23
+===================
+
+Fixed
+-----
+- Delivery failure when captions of messages from slave channel are too long
+- Exception thrown when executing a command in a command message
 
 Known issue
 -----------
@@ -35,7 +81,7 @@ Known issue
 Added
 -----
 - Experimental flag ``default_media_prompt`` to modify placeholder text of
-  media messages with no caption.
+  media messages with no caption. (`#104`_)
 
 Changed
 -------
@@ -141,8 +187,14 @@ First release.
 .. _2.0.4: https://etm.1a23.studio/compare/v2.0.3...v2.0.4
 .. _2.1.0: https://etm.1a23.studio/compare/v2.0.4...v2.1.0
 .. _2.2.0: https://etm.1a23.studio/compare/v2.1.0...v2.2.0
+.. _2.2.1: https://etm.1a23.studio/compare/v2.2.0...v2.2.1
+.. _2.2.2: https://etm.1a23.studio/compare/v2.2.1...v2.2.2
+.. _2.2.3: https://etm.1a23.studio/compare/v2.2.2...v2.2.3
+.. _2.2.4: https://etm.1a23.studio/compare/v2.2.3...v2.2.4
 .. _#93: https://etm.1a23.studio/issues/93
 .. _#99: https://etm.1a23.studio/issues/99
 .. _#100: https://etm.1a23.studio/issues/100
 .. _#102: https://etm.1a23.studio/issues/102
 .. _#103: https://etm.1a23.studio/issues/103
+.. _#104: https://etm.1a23.studio/issues/104
+.. _#110: https://etm.1a23.studio/pull/110

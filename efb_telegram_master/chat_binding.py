@@ -10,13 +10,13 @@ from typing import Tuple, Dict, Optional, List, TYPE_CHECKING, IO, Union, Patter
 
 import telegram  # lgtm [py/import-and-import-from]
 from PIL import Image
-from telegram import Update, Message, Chat, TelegramError, InlineKeyboardButton, ChatAction, InlineKeyboardMarkup, \
+from telegram import Update, Message, TelegramError, InlineKeyboardButton, ChatAction, InlineKeyboardMarkup, \
     ParseMode
 from telegram.error import BadRequest
 from telegram.ext import ConversationHandler, CommandHandler, CallbackQueryHandler, CallbackContext, Filters, \
     MessageHandler
 
-from ehforwarderbot import coordinator, Chat, Channel, MsgType
+from ehforwarderbot import coordinator, Channel, MsgType
 from ehforwarderbot.channel import SlaveChannel
 from ehforwarderbot.chat import SystemChatMember
 from ehforwarderbot.exceptions import EFBChatNotFound, EFBOperationNotSupported
@@ -27,7 +27,7 @@ from .constants import Emoji, Flags
 from .locale_mixin import LocaleMixin
 from .message import ETMMsg
 from .msg_type import TGMsgType
-from .utils import EFBChannelChatIDStr, TelegramChatID, TelegramMessageID
+from .utils import EFBChannelChatIDStr, TelegramChatID, TelegramMessageID, TgChatMsgIDStr
 
 if TYPE_CHECKING:
     from . import TelegramChannel
@@ -74,6 +74,7 @@ class ChatListStorage:
 
     def set_chat_suggestion(self, update: Update):
         """Set suggestion message without recipient indicated."""
+        assert isinstance(update, Update)
         self.update = update
 
 
@@ -194,6 +195,9 @@ class ChatBindingManager(LocaleMixin):
         If no chat is linked to this group, then the bot messages
         the full list privately.
         """
+        assert isinstance(update, Update)
+        assert update.effective_message
+
         args = context.args or []
         message: Message = update.effective_message
 
@@ -206,33 +210,37 @@ class ChatBindingManager(LocaleMixin):
             rtm: Message = message.reply_to_message
             msg_log = self.db.get_msg_log(
                 master_msg_id=utils.message_id_to_str(
-                    chat_id=rtm.chat_id, message_id=rtm.message_id))
+                    chat_id=TelegramChatID(rtm.chat_id),
+                    message_id=TelegramMessageID(rtm.message_id)
+                )
+            )
             if msg_log:
                 channel_id, chat_id, _ = utils.chat_id_str_to_id(msg_log.slave_origin_uid)
                 chat: ETMChatType = self.chat_manager.get_chat(channel_id, chat_id, build_dummy=True)
-                tg_chat_id = message.chat_id
-                tg_msg_id = message.reply_text(self._("Processing...")).message_id
-                storage_id = (tg_chat_id, tg_msg_id)
+                tg_chat_id = TelegramChatID(message.chat_id)
+                tg_msg_id = TelegramMessageID(message.reply_text(self._("Processing...")).message_id)
+                storage_id: Tuple[TelegramChatID, TelegramMessageID] = (tg_chat_id, tg_msg_id)
                 self.link_handler.conversations[storage_id] = Flags.LINK_EXEC
                 self.msg_storage[storage_id] = ChatListStorage([chat])
                 return self.build_link_action_message(chat, tg_chat_id, tg_msg_id)
 
         if message.chat.type != telegram.Chat.PRIVATE:
             links = self.db.get_chat_assoc(
-                master_uid=utils.chat_id_to_str(self.channel.channel_id, message.chat.id))
+                master_uid=utils.chat_id_to_str(self.channel.channel_id, ChatID(str(message.chat.id))))
             if links:
-                return self.link_chat_gen_list(message.chat.id, pattern=" ".join(args),
+                return self.link_chat_gen_list(TelegramChatID(message.chat.id), pattern=" ".join(args),
                                                chats=links, filter_availability=False)
         elif message.forward_from_chat and \
                 message.forward_from_chat.type == telegram.Chat.CHANNEL:
-            chat_id = message.forward_from_chat.id
+            chat_id = ChatID(str(message.forward_from_chat.id))
             links = self.db.get_chat_assoc(
                 master_uid=utils.chat_id_to_str(self.channel.channel_id, chat_id))
             if links:
-                return self.link_chat_gen_list(message.chat.id, pattern=" ".join(args),
+                return self.link_chat_gen_list(TelegramChatID(message.chat.id),
+                                               pattern=" ".join(args),
                                                chats=links, filter_availability=False)
-
-        return self.link_chat_gen_list(message.from_user.id, pattern=" ".join(args))
+        assert message.from_user
+        return self.link_chat_gen_list(TelegramChatID(message.from_user.id), pattern=" ".join(args))
 
     def slave_chats_pagination(self, storage_id: Tuple[TelegramChatID, TelegramMessageID],
                                offset: int = 0,
@@ -394,6 +402,12 @@ class ChatBindingManager(LocaleMixin):
         Returns:
             int: Next status
         """
+        assert isinstance(update, Update)
+        assert update.effective_chat
+        assert update.effective_message
+        assert update.callback_query
+        assert update.callback_query.data
+
         tg_chat_id = TelegramChatID(update.effective_chat.id)
         tg_msg_id = TelegramMessageID(update.effective_message.message_id)
         callback_uid: str = update.callback_query.data
@@ -464,9 +478,14 @@ class ChatBindingManager(LocaleMixin):
         """
         Action to link a chat. Triggered by callback message with status `Flags.EXEC_LINK`.
         """
+        assert isinstance(update, Update)
+        assert update.effective_chat
+        assert update.effective_message
+        assert update.callback_query
+        assert update.callback_query.data
 
-        tg_chat_id = update.effective_chat.id
-        tg_msg_id = update.effective_message.message_id
+        tg_chat_id = TelegramChatID(update.effective_chat.id)
+        tg_msg_id = TelegramMessageID(update.effective_message.message_id)
         callback_uid = update.callback_query.data
 
         if callback_uid == Flags.CANCEL_PROCESS:
@@ -509,13 +528,19 @@ class ChatBindingManager(LocaleMixin):
         self.msg_storage.pop((tg_chat_id, tg_msg_id), None)
         return ConversationHandler.END
 
-    def link_chat(self, update, args):
+    def link_chat(self, update: Update, args: Optional[List[str]]):
         """Actual code of linking a chat by manipulating database.
         Triggered by ``/start BASE64(msg_id_to_str(chat_id, msg_id))``.
         """
+        assert isinstance(update, Update)
+        assert update.message
+        assert update.effective_message
+        assert update.effective_chat
+        assert args
+
         try:
-            msg_id = utils.message_id_str_to_id(utils.b64de(args[0]))
-            storage_key: Tuple[int, int] = (int(msg_id[0]), int(msg_id[1]))
+            msg_id = utils.message_id_str_to_id(TgChatMsgIDStr(utils.b64de(args[0])))
+            storage_key = (TelegramChatID(int(msg_id[0])), TelegramMessageID(int(msg_id[1])))
             data = self.msg_storage[storage_key]
         except KeyError:
             return update.message.reply_text(self._("Session expired or unknown parameter. (SE02)"))
@@ -532,7 +557,7 @@ class ChatBindingManager(LocaleMixin):
                 message_id=storage_key[1])
 
         # Use channel ID if command is forwarded from a channel.
-        forwarded_chat: Chat = update.effective_message.forward_from_chat
+        forwarded_chat = update.effective_message.forward_from_chat
         if forwarded_chat and forwarded_chat.type == telegram.Chat.CHANNEL:
             tg_chat_to_link = forwarded_chat.id
         else:
@@ -541,7 +566,7 @@ class ChatBindingManager(LocaleMixin):
         txt = self._('Trying to link chat {0}...').format(chat_display_name)
         msg = self.bot.send_message(tg_chat_to_link, text=txt)
 
-        chat.link(self.channel.channel_id, tg_chat_to_link, self.channel.flag("multiple_slave_chats"))
+        chat.link(self.channel.channel_id, ChatID(str(tg_chat_to_link)), self.channel.flag("multiple_slave_chats"))
 
         txt = self._("Chat {0} is now linked.").format(chat_display_name)
         self.bot.edit_message_text(text=txt, chat_id=msg.chat.id, message_id=msg.message_id)
@@ -556,33 +581,36 @@ class ChatBindingManager(LocaleMixin):
         Unlink all chats linked to the telegram group.
         Triggered by `/unlink_all`.
         """
+        assert isinstance(update, Update)
+        assert update.message
+
         if update.message.chat.type != telegram.Chat.PRIVATE:
 
             links = self.db.get_chat_assoc(master_uid=utils.chat_id_to_str(self.channel.channel_id,
-                                                                           update.message.chat.id))
+                                                                           ChatID(str(update.message.chat.id))))
             if len(links) < 1:
                 return self.bot.send_message(update.message.chat.id, self._("No chat is linked to the group."),
                                              reply_to_message_id=update.message.message_id)
             else:
                 self.db.remove_chat_assoc(master_uid=utils.chat_id_to_str(self.channel.channel_id,
-                                                                          update.message.chat.id))
+                                                                          ChatID(str(update.message.chat.id))))
                 return self.bot.send_message(update.message.chat.id,
                                              self.ngettext("All {0} chat has been unlinked from this group.",
                                                            "All {0} chats has been unlinked from this group.",
                                                            len(links)).format(len(links)),
                                              reply_to_message_id=update.message.message_id)
         else:
-            forwarded_chat = update.effective_message.forward_from_chat
+            forwarded_chat = update.message.forward_from_chat
             if forwarded_chat and forwarded_chat.type == telegram.Chat.CHANNEL:
                 links = self.db.get_chat_assoc(
-                    master_uid=utils.chat_id_to_str(self.channel.channel_id, forwarded_chat.id))
+                    master_uid=utils.chat_id_to_str(self.channel.channel_id, ChatID(str(forwarded_chat.id))))
 
                 if len(links) < 1:
                     return self.bot.send_message(update.message.chat.id, self._("No chat is linked to the channel."),
                                                  reply_to_message_id=update.message.message_id)
                 else:
                     self.db.remove_chat_assoc(
-                        master_uid=utils.chat_id_to_str(self.channel.channel_id, forwarded_chat.id))
+                        master_uid=utils.chat_id_to_str(self.channel.channel_id, ChatID(str(forwarded_chat.id))))
                     return self.bot.send_message(update.message.chat.id,
                                                  self.ngettext("All {0} chat has been unlinked from this channel.",
                                                                "All {0} chats has been unlinked from this channel.",
@@ -600,16 +628,22 @@ class ChatBindingManager(LocaleMixin):
         Send a list to for chat list generation.
         Triggered by `/chat`.
         """
+        assert isinstance(update, Update)
+        assert update.message
+
         args = context.args or []
         chats = None
         if update.message.chat.type != telegram.Chat.PRIVATE:
             chats = self.db.get_chat_assoc(
-                master_uid=utils.chat_id_to_str(self.channel.channel_id, update.message.chat_id))
+                master_uid=utils.chat_id_to_str(self.channel.channel_id, ChatID(str(update.message.chat_id)))
+            )
             chats = chats or None
         if chats:
-            target = update.message.chat_id
+            target = TelegramChatID(update.message.chat_id)
+        elif update.message.from_user:
+            target = TelegramChatID(update.message.from_user.id)
         else:
-            target = update.message.from_user.id
+            raise Exception("No target chat is found when generating chat list.")
         return self.chat_head_req_generate(target, pattern=" ".join(args), chats=chats)
 
     def chat_head_req_generate(self, chat_id: TelegramChatID,
@@ -688,8 +722,14 @@ class ChatBindingManager(LocaleMixin):
 
         This message is a part of the ``/chat`` conversation handler.
         """
-        tg_chat_id = update.effective_chat.id
-        tg_msg_id = update.effective_message.message_id
+        assert isinstance(update, Update)
+        assert update.effective_chat
+        assert update.effective_message
+        assert update.callback_query
+        assert update.callback_query.data
+
+        tg_chat_id = TelegramChatID(update.effective_chat.id)
+        tg_msg_id = TelegramMessageID(update.effective_message.message_id)
         callback_uid: str = update.callback_query.data
 
         # Refresh with a new set of pages
@@ -760,9 +800,16 @@ class ChatBindingManager(LocaleMixin):
 
         Triggered by flag ``SUGGEST_RECIPIENTS``.
         """
-        chat_id = update.effective_chat.id
-        msg_id = update.effective_message.message_id
+        assert isinstance(update, Update)
+        assert update.effective_message
+        assert update.effective_chat
+        assert update.callback_query
+        assert update.callback_query.data
+
+        chat_id = TelegramChatID(update.effective_chat.id)
+        msg_id = TelegramMessageID(update.effective_message.message_id)
         param = update.callback_query.data
+
         storage_id = (chat_id, msg_id)
         if param.startswith("chat "):
             if storage_id not in self.msg_storage:
@@ -771,7 +818,9 @@ class ChatBindingManager(LocaleMixin):
                                                        "Session expired, please try again."),
                                            chat_id=chat_id,
                                            message_id=msg_id)
-            update = self.msg_storage[storage_id].update
+            update_ = self.msg_storage[storage_id].update
+            assert update_
+            update = update_
             chats = self.msg_storage[storage_id].chats
             if not chats:
                 self.bot.edit_message_text(text=self._("Error: No recipient specified.\n"
@@ -779,7 +828,8 @@ class ChatBindingManager(LocaleMixin):
                                                        "Session expired, please try again."),
                                            chat_id=chat_id,
                                            message_id=msg_id)
-                update.callback_query.answer()
+                if update.callback_query:
+                    update.callback_query.answer()
                 return ConversationHandler.END
             slave_chat = chats[int(param.split(' ', 1)[1])]
             slave_chat_id = utils.chat_id_to_str(chat=slave_chat)
@@ -810,6 +860,10 @@ class ChatBindingManager(LocaleMixin):
 
         Triggered by ``/update_info`` command.
         """
+        assert isinstance(update, Update)
+        assert update.effective_message
+        assert update.effective_chat
+
         if update.effective_chat.type == telegram.Chat.PRIVATE:
             return self.bot.reply_error(update, self._('Send /update_info to a group where this bot is a group admin '
                                                        'to update group title, description and profile picture.'))
@@ -819,7 +873,7 @@ class ChatBindingManager(LocaleMixin):
         else:
             tg_chat = update.effective_chat.id
         chats = self.db.get_chat_assoc(master_uid=utils.chat_id_to_str(channel=self.channel,
-                                                                       chat_uid=tg_chat))
+                                                                       chat_uid=ChatID(str(tg_chat))))
         if len(chats) != 1:
             return self.bot.reply_error(update, self.ngettext('This only works in a group linked with one chat. '
                                                               'Currently {0} chat linked to this group.',
@@ -878,7 +932,7 @@ class ChatBindingManager(LocaleMixin):
             picture.seek(0)
 
             self.bot.set_chat_photo(tg_chat, pic_resized or picture)
-            update.message.reply_text(self._('Chat details updated.'))
+            update.effective_message.reply_text(self._('Chat details updated.'))
         except EFBChatNotFound:
             self.logger.exception("Chat linked (%s) is not found in the slave channel "
                                   "(%s).", channel_id, chat_uid)
@@ -907,13 +961,16 @@ class ChatBindingManager(LocaleMixin):
         ``migrate_from_chat_id`` or ``migrate_to_chat_id``
         or both (which shouldn’t happen).
         """
+        assert isinstance(update, Update)
+        assert update.effective_message
+
         message = update.effective_message
         if message.migrate_from_chat_id is not None:
-            from_id = ChatID(message.migrate_from_chat_id)
-            to_id = ChatID(message.chat.id)
+            from_id = ChatID(str(message.migrate_from_chat_id))
+            to_id = ChatID(str(message.chat.id))
         elif message.migrate_to_chat_id is not None:
-            from_id = ChatID(message.chat.id)
-            to_id = ChatID(message.migrate_to_chat_id)
+            from_id = ChatID(str(message.chat.id))
+            to_id = ChatID(str(message.migrate_to_chat_id))
         else:
             # Per ptb filter specs, this part of code should not be reached.
             return
@@ -923,7 +980,7 @@ class ChatBindingManager(LocaleMixin):
         from_str = utils.chat_id_to_str(self.channel.channel_id, from_id)
         to_str = utils.chat_id_to_str(self.channel.channel_id, to_id)
         for i in self.db.get_chat_assoc(master_uid=from_str):
-            self.db.add_chat_assoc(master_uid=to_str, slave_uid=i)
+            self.db.add_chat_assoc(master_uid=to_str, slave_uid=i, multiple_slave=True)
         self.db.remove_chat_assoc(master_uid=from_str)
 
     @staticmethod
