@@ -105,11 +105,13 @@ class TelegramBotManager(LocaleMixin):
 
                 if len(prefix + text + suffix) >= telegram.constants.MAX_CAPTION_LENGTH:
                     full_message = io.StringIO(prefix + text + suffix)
-                    truncated = prefix + text[:100] + "\n…\n" + text[:-100] + suffix
+                    truncated = prefix + text[:100] + "\n…\n" + text[-100:] + suffix
                     kwargs['caption'] = truncated
                     msg = fn(self, *args, **kwargs)
-                    filename = "%s_%s.txt" % (args[0], msg.message_id)
-                    self.updater.bot.send_document(args[0], full_message, filename,
+                    chat_id = kwargs.get("chat_id", args[0] if len(args) > 0 else "")
+                    filename = "%s_%s.txt" % (chat_id, msg.message_id)
+                    self.updater.bot.send_document(chat_id, full_message,
+                                                   filename=filename,
                                                    reply_to_message_id=msg.message_id,
                                                    caption=self._("Caption is truncated due to its length. "
                                                                   "Full message is sent as attachment."))
@@ -169,7 +171,9 @@ class TelegramBotManager(LocaleMixin):
             self.logger.debug("Webhook is set...")
 
         self.logger.debug("Checking connection to Telegram bot API...")
-        self.me: User = self.updater.bot.get_me()
+        me = self.updater.bot.get_me()
+        assert me, "Invalid bot credential provided."
+        self.me: User = me
         self.logger.debug("Connection to Telegram bot API is OK...")
         self.admins: List[int] = config['admins']
         self.dispatcher: Dispatcher = self.updater.dispatcher
@@ -264,7 +268,8 @@ class TelegramBotManager(LocaleMixin):
                 filename += ".html"
             else:
                 filename += ".txt"
-            self.updater.bot.send_document(kwargs['chat_id'], full_message, filename,
+            self.updater.bot.send_document(kwargs['chat_id'], full_message,
+                                           filename=filename,
                                            reply_to_message_id=msg.message_id,
                                            caption=self._("Message is truncated due to its length. "
                                                           "Full message is sent as attachment."))
@@ -474,6 +479,9 @@ class TelegramBotManager(LocaleMixin):
         return self.updater.bot.get_me(*args, **kwargs)
 
     def session_expired(self, update: Update, context: CallbackContext):
+        assert isinstance(update, Update)
+        assert update.effective_message
+        assert update.effective_chat
         if update.callback_query:
             update.callback_query.answer()
         self.edit_message_text(text=self._("Session expired. Please try again. (SE01)"),
@@ -556,14 +564,15 @@ class TelegramBotManager(LocaleMixin):
     def set_chat_description(self, *args, **kwargs):
         return self.updater.bot.set_chat_description(*args, **kwargs)
 
-    def polling(self, clean: bool = False):
+    def polling(self, drop_pending_updates: bool = False):
         """
         Poll message from Telegram Bot API. Can be used to extend for web hook.
         This method must NOT be blocking.
 
         Args:
-            clean: Whether to clean any pending updates on Telegram servers
-                before actually starting to poll. Default is False.
+            drop_pending_updates: Whether to clean any pending updates on
+                Telegram servers before actually starting to poll.
+                Default is False.
         """
         # self.updater.start_polling(timeout=10)
         # webhook_url = self.channel.config.get('webhook_url', '')
@@ -582,7 +591,7 @@ class TelegramBotManager(LocaleMixin):
             start_webhook = self.channel.config['webhook']['start_webhook']
             self.updater.start_webhook(**start_webhook)
         else:
-            self.updater.start_polling(timeout=10, clean=clean)
+            self.updater.start_polling(timeout=10, drop_pending_updates=drop_pending_updates)
 
     def graceful_stop(self):
         """Gracefully stop the bot"""
