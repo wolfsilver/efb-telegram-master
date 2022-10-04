@@ -90,8 +90,7 @@ class ETMMsg(Message):
             self.__path = Path(file.name)
             self.__filename = self.__filename or os.path.basename(file.name)
 
-            if self.type_telegram == TGMsgType.Animation:
-
+            if self.type_telegram in (TGMsgType.Animation, TGMsgType.VideoSticker):
                 gif_file = utils.gif_conversion(file, self.deliver_to.channel_id)
 
                 self.__file = gif_file
@@ -195,8 +194,7 @@ class ETMMsg(Message):
                 self.file_id = message.audio.file_id
                 self.file_unique_id = message.audio.file_unique_id
                 self.mime = message.audio.mime_type
-                extension = mimetypes.guess_extension(message.audio.mime_type or "audio/ogg")
-                self.filename = f"{message.audio.title} - {message.audio.performer}{extension}"
+                self.filename = message.audio.file_name
             elif self.type_telegram is TGMsgType.Sticker:
                 assert message.sticker
                 self.file_id = message.sticker.file_id
@@ -207,6 +205,12 @@ class ETMMsg(Message):
                 self.file_id = message.sticker.file_id
                 self.file_unique_id = message.sticker.file_unique_id
                 self.mime = 'application/json+tgs'
+                self.type = MsgType.Animation
+            elif self.type_telegram is TGMsgType.VideoSticker:
+                assert message.sticker
+                self.file_id = message.sticker.file_id
+                self.file_unique_id = message.sticker.file_unique_id
+                self.mime = 'video/webm'
                 self.type = MsgType.Animation
             elif getattr(message, 'photo', None):
                 attachment = message.photo[-1]

@@ -554,6 +554,21 @@ e.g.:
     - ``text``: Use text like “Sent a picture/video/file”.
     - ``disabled``: Use empty placeholders.
 
+-   ``api_base_url`` *(str)* [Default: ``null``]
+
+    Base URL of the Telegram Bot API.
+    Defaulted to ``https://api.telegram.org/bot``.
+
+-   ``api_base_file_url`` *(str)* [Default: ``null``]
+
+    Base file URL of the Telegram Bot API.
+    Defaulted to ``https://api.telegram.org/file/bot``.
+
+-   ``local_tdlib_api`` *(bool)* [Default: ``false``]
+
+    Enable this option if the bot API is running in ``--local`` mode and
+    is using the same file system with ETM.
+
 Network configuration: timeout tweaks
 -------------------------------------
 
@@ -666,6 +681,13 @@ __ https://docs.python.org/3/library/xmlrpc.html
 
 .. _the db (database manager) class: https://etm.1a23.studio/blob/master/efb_telegram_master/db.py
 .. _the RPCUtilities class: https://etm.1a23.studio/blob/master/efb_telegram_master/rpc_utilities.py
+
+Setup Webhook
+-------------
+
+For details on how to setup a webhook, please visit this `wiki article`_.
+
+.. _wiki article: https://github.com/ehForwarderBot/efb-telegram-master/wiki/Setup-Webhook
 
 License
 -------

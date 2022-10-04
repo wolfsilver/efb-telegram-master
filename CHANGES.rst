@@ -25,8 +25,28 @@ Removed
 
 Fixed
 -----
+
+2.3.1_ - 2022-05-24
+===================
+Fixed
+-----
+- Add missing support to video stickers.
+
+2.3.0_ - 2022-05-24
+===================
+
+Added
+-----
+- Support for custom Telegram API endpoints and local Tglib Bot API client mode.
+  (`#116`_)
+- Add support to video stickers. (`#120`_)
+
+Fixed
+-----
 - Attempt to fix “Database is Locked” issue. (`#110`_ by whtsky)
 - Telegram GIF image processing may trigger an early download
+- Preserve filenames from Telegram for music files (`#117`_)
+- Redundant error message when trying to send unsupported media.
 
 2.2.4_ - 2021-05-22
 ===================
@@ -191,6 +211,7 @@ First release.
 .. _2.2.2: https://etm.1a23.studio/compare/v2.2.1...v2.2.2
 .. _2.2.3: https://etm.1a23.studio/compare/v2.2.2...v2.2.3
 .. _2.2.4: https://etm.1a23.studio/compare/v2.2.3...v2.2.4
+.. _2.3.0: https://etm.1a23.studio/compare/v2.2.4...v2.3.0
 .. _#93: https://etm.1a23.studio/issues/93
 .. _#99: https://etm.1a23.studio/issues/99
 .. _#100: https://etm.1a23.studio/issues/100
@@ -198,3 +219,6 @@ First release.
 .. _#103: https://etm.1a23.studio/issues/103
 .. _#104: https://etm.1a23.studio/issues/104
 .. _#110: https://etm.1a23.studio/pull/110
+.. _#116: https://etm.1a23.studio/issues/116
+.. _#117: https://etm.1a23.studio/issues/117
+.. _#120: https://etm.1a23.studio/issues/120

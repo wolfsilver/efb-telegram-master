@@ -48,6 +48,7 @@ class MasterMessageProcessor(LocaleMixin):
         TGMsgType.Photo: MsgType.Image,
         TGMsgType.Sticker: MsgType.Sticker,
         # TGMsgType.AnimatedSticker: MsgType.Animation,
+        TGMsgType.VideoSticker: MsgType.Animation,
         TGMsgType.Video: MsgType.Video,
         TGMsgType.VideoNote: MsgType.Video,
         TGMsgType.Voice: MsgType.Voice,
@@ -254,6 +255,7 @@ class MasterMessageProcessor(LocaleMixin):
                 self.logger.debug("[%s] EFB message type: %s", message_id, mtype)
             else:
                 self.logger.info("[%s] Message type %s is not supported by ETM", message_id, mtype)
+                log_message = False
                 raise EFBMessageTypeNotSupported(
                     self._("{type_name} messages are not supported by EFB Telegram Master channel.")
                         .format(type_name=mtype.name))
@@ -316,7 +318,7 @@ class MasterMessageProcessor(LocaleMixin):
                     self.logger.debug("[%s] Message media is edited (%s -> %s)", m.uid, edited.file_unique_id, m.file_unique_id)
                     m.edit_media = True
 
-            # Enclose message as an Message object by message type.
+            # Enclose message as a Message object by message type.
             if mtype is TGMsgType.Text:
                 m.text = msg_md_text
             elif mtype is TGMsgType.Photo:
@@ -338,6 +340,15 @@ class MasterMessageProcessor(LocaleMixin):
                     m_filename += ".gif"
                 m.filename = m_filename
                 m.mime = message.animation.mime_type or m.mime
+            elif mtype is TGMsgType.VideoSticker:
+                assert message.sticker and message.sticker.is_video
+                m.text = msg_md_caption
+                self.logger.debug("[%s] Telegram message is a WebM sticker.", message_id)
+                m_filename = getattr(message.sticker, "file_name", None) or "sticker"
+                if m_filename and not m_filename.lower().endswith(".gif"):
+                    m_filename += ".gif"
+                m.filename = m_filename
+                m.mime = "image/gif"
             elif mtype is TGMsgType.Document:
                 assert message.document
                 m.text = msg_md_caption
@@ -475,7 +486,7 @@ class MasterMessageProcessor(LocaleMixin):
 
     def _check_file_download(self, file_obj: Any):
         """
-        Check if the file is available for download..
+        Check if the file is available for download.
 
         Args:
             file_obj (telegram.File): PTB file object
@@ -484,7 +495,8 @@ class MasterMessageProcessor(LocaleMixin):
             EFBMessageError: When file exceeds the maximum download size.
         """
         size = getattr(file_obj, "file_size", None)
-        if size and size > MAX_FILESIZE_DOWNLOAD:
+        if size and not self.channel.flag("local_tdlib_api")\
+                and size > MAX_FILESIZE_DOWNLOAD:
             size_str = humanize.naturalsize(size)
             max_size_str = humanize.naturalsize(MAX_FILESIZE_DOWNLOAD)
             raise EFBMessageError(
