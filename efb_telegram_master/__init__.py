@@ -8,14 +8,11 @@ from gettext import NullTranslations, translation
 from typing import Optional, List, Callable
 from xmlrpc.server import SimpleXMLRPCServer
 
-import telegram  # lgtm [py/import-and-import-from]
-import telegram.constants
-import telegram.error
+from telegram import Update, Message
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, CallbackContext, filters
 from PIL import Image, WebPImagePlugin
 from pkg_resources import resource_filename
 from ruamel.yaml import YAML
-from telegram import Update, Message
-from telegram.ext import CommandHandler, CallbackQueryHandler, CallbackContext, Filters
 
 import ehforwarderbot  # lgtm [py/import-and-import-from]
 from ehforwarderbot import Channel, coordinator
@@ -135,7 +132,7 @@ class TelegramChannel(MasterChannel):
                                           fallback=True)
 
         # Basic message handlers
-        non_edit_filter = Filters.update.message | Filters.update.channel_post
+        non_edit_filter = filters.UPDATE.message | filters.UPDATE.channel_post
         self.bot_manager.dispatcher.add_handler(
             CommandHandler("start", self.start, filters=non_edit_filter))
         self.bot_manager.dispatcher.add_handler(
