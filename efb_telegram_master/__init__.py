@@ -15,7 +15,7 @@ from PIL import Image, WebPImagePlugin
 from pkg_resources import resource_filename
 from ruamel.yaml import YAML
 from telegram import Update, Message
-from telegram.ext import CommandHandler, CallbackQueryHandler, CallbackContext, Filters
+from telegram.ext import CommandHandler, CallbackQueryHandler, CallbackContext, MessageHandler, Application, filters
 
 import ehforwarderbot  # lgtm [py/import-and-import-from]
 from ehforwarderbot import Channel, coordinator
@@ -135,7 +135,7 @@ class TelegramChannel(MasterChannel):
                                           fallback=True)
 
         # Basic message handlers
-        non_edit_filter = Filters.update.message | Filters.update.channel_post
+        non_edit_filter = filters.UpdateType.MESSAGE | filters.UpdateType.CHANNEL_POST
         self.bot_manager.dispatcher.add_handler(
             CommandHandler("start", self.start, filters=non_edit_filter))
         self.bot_manager.dispatcher.add_handler(

@@ -14,7 +14,8 @@ from typing import Any, Dict, List, IO, Tuple, TYPE_CHECKING
 
 import pydub
 import requests
-import telegram.ext
+from telegram import ParseMode
+from telegram.ext import CommandHandler
 
 from ehforwarderbot import MsgType
 from .locale_mixin import LocaleMixin
@@ -50,7 +51,7 @@ class VoiceRecognitionManager(LocaleMixin):
         self.logger: logging.Logger = logging.getLogger(__name__)
 
         self.bot.dispatcher.add_handler(
-            telegram.ext.CommandHandler("recog", self.recognize_speech, pass_args=True))
+            CommandHandler("recog", self.recognize_speech, pass_args=True))
 
         tokens: Dict[str, Any] = self.channel.config.get("speech_api", dict())
         self.voice_engines = []
@@ -138,7 +139,7 @@ class VoiceRecognitionManager(LocaleMixin):
         msg = self._("Results:\n{0}").format(msg)
         self.bot.send_message(update.message.reply_to_message.chat.id, msg,
                               reply_to_message_id=update.message.reply_to_message.message_id,
-                              parse_mode=telegram.ParseMode.HTML)
+                              parse_mode=ParseMode.HTML)
 
         file.close()
 
