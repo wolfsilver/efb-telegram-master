@@ -281,7 +281,7 @@ In a non-linked chat, quote-reply will not be passed on to the remote
 channel, everything else is supported as it does in a linked chat.
 
 Quick reply in non-linked chats
-'''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''
 ETM provides a mechanism that allow you to keep sending messages to the same
 recipient without quoting every single time. ETM will store the remote chat you
 sent a message to in every Telegram chat (i.e. a Telegram group or the bot),

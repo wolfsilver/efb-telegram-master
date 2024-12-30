@@ -11,7 +11,7 @@ import telegram.constants
 import telegram.error
 from retrying import retry
 from telegram import Update, InputFile, User, File
-from telegram.ext import CallbackContext, Filters, MessageHandler, Updater, Dispatcher
+from telegram.ext import CallbackContext, Filters, MessageHandler, Application
 
 from .locale_handler import LocaleHandler
 from .locale_mixin import LocaleMixin
@@ -30,8 +30,8 @@ class TelegramBotManager(LocaleMixin):
     Attributes:
         me (telegram.User): Telegram User
         admins (List[int]): List of admin user IDs.
-        updater (telegram.ext.Updater): Updater of the bot
-        dispatcher (telegram.ext.Dispatcher): Dispatcher of the updater
+        updater (telegram.ext.Application): Updater of the bot
+        dispatcher (telegram.ext.Application): Dispatcher of the updater
     """
 
     webhook = False
@@ -153,11 +153,7 @@ class TelegramBotManager(LocaleMixin):
             req_kwargs.update(conf_req_kwargs)
 
         self.logger.debug("Setting up Telegram bot updater...")
-        self.updater: Updater = Updater(config['token'],
-                                        base_url=channel.flag('api_base_url'),
-                                        base_file_url=channel.flag('api_base_file_url'),
-                                        request_kwargs=req_kwargs,
-                                        use_context=True)
+        self.updater: Application = Application.builder().token(config['token']).base_url(channel.flag('api_base_url')).base_file_url(channel.flag('api_base_file_url')).request_kwargs(req_kwargs).build()
 
         if isinstance(config.get('webhook'), dict):
             self.logger.debug("Setting up webhook...")
@@ -170,7 +166,7 @@ class TelegramBotManager(LocaleMixin):
         self.me: User = me
         self.logger.debug("Connection to Telegram bot API is OK...")
         self.admins: List[int] = config['admins']
-        self.dispatcher: Dispatcher = self.updater.dispatcher
+        self.dispatcher: Application = self.updater.dispatcher
         self.logger.debug("Adding base dispatchers...")
         # New whitelist handler
         whitelist_filter = ~Filters.user(user_id=self.admins)
