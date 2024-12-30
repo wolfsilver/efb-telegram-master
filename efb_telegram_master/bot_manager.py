@@ -11,7 +11,7 @@ import telegram.constants
 import telegram.error
 from retrying import retry
 from telegram import Update, InputFile, User, File
-from telegram.ext import CallbackContext, Filters, MessageHandler, Application
+from telegram.ext import CallbackContext, filters, MessageHandler, Application
 
 from .locale_handler import LocaleHandler
 from .locale_mixin import LocaleMixin
@@ -169,7 +169,7 @@ class TelegramBotManager(LocaleMixin):
         self.dispatcher: Application = self.updater.dispatcher
         self.logger.debug("Adding base dispatchers...")
         # New whitelist handler
-        whitelist_filter = ~Filters.user(user_id=self.admins)
+        whitelist_filter = ~filters.User(user_id=self.admins)
         self.dispatcher.add_handler(
             MessageHandler(whitelist_filter, lambda update, context: ...))
         self.dispatcher.add_handler(LocaleHandler(channel))
