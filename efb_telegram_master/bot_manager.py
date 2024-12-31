@@ -11,7 +11,7 @@ import telegram.constants
 import telegram.error
 from retrying import retry
 from telegram import Update, InputFile, User, File
-from telegram.ext import CallbackContext, filters, MessageHandler, Application
+from telegram.ext import CallbackContext, filters, MessageHandler, Updater, Application
 
 from .locale_handler import LocaleHandler
 from .locale_mixin import LocaleMixin
@@ -30,8 +30,8 @@ class TelegramBotManager(LocaleMixin):
     Attributes:
         me (telegram.User): Telegram User
         admins (List[int]): List of admin user IDs.
-        updater (telegram.ext.Application): Updater of the bot
-        dispatcher (telegram.ext.Application): Dispatcher of the updater
+        updater (telegram.ext.Updater): Updater of the bot
+        application (telegram.ext.Application): Application of the updater
     """
 
     webhook = False
@@ -147,13 +147,18 @@ class TelegramBotManager(LocaleMixin):
         self.channel: 'TelegramChannel' = channel
         config = self.channel.config
 
-        req_kwargs = {'read_timeout': 30, 'connect_timeout': 15}
+        req_kwargs = {'read_timeout': 15}
         conf_req_kwargs = config.get('request_kwargs')
         if isinstance(conf_req_kwargs, collections.abc.Mapping):
             req_kwargs.update(conf_req_kwargs)
 
         self.logger.debug("Setting up Telegram bot updater...")
-        self.updater: Application = Application.builder().token(config['token']).base_url(channel.flag('api_base_url')).base_file_url(channel.flag('api_base_file_url')).request_kwargs(req_kwargs).build()
+        # self.updater: Updater = Updater(config['token'],
+        #                                 base_url=channel.flag('api_base_url'),
+        #                                 base_file_url=channel.flag('api_base_file_url'),
+        #                                 request_kwargs=req_kwargs,
+        #                                 )
+        application = Application.builder().token(config['token']).build()
 
         if isinstance(config.get('webhook'), dict):
             self.logger.debug("Setting up webhook...")
@@ -166,15 +171,15 @@ class TelegramBotManager(LocaleMixin):
         self.me: User = me
         self.logger.debug("Connection to Telegram bot API is OK...")
         self.admins: List[int] = config['admins']
-        self.dispatcher: Application = self.updater.dispatcher
-        self.logger.debug("Adding base dispatchers...")
+        self.application: Application = application
+        self.logger.debug("Adding base applications...")
         # New whitelist handler
         whitelist_filter = ~filters.User(user_id=self.admins)
-        self.dispatcher.add_handler(
+        self.application.add_handler(
             MessageHandler(whitelist_filter, lambda update, context: ...))
-        self.dispatcher.add_handler(LocaleHandler(channel))
+        self.application.add_handler(LocaleHandler(channel))
         self.Decorators.enable_retry = channel.flag('retry_on_error')
-        self.logger.debug("Base dispatchers added...")
+        self.logger.debug("Base applications added...")
 
     @Decorators.retry_on_timeout
     @Decorators.retry_on_chat_migration
@@ -468,12 +473,12 @@ class TelegramBotManager(LocaleMixin):
     def get_me(self, *args, **kwargs):
         return self.updater.bot.get_me(*args, **kwargs)
 
-    def session_expired(self, update: Update, context: CallbackContext):
+    async def session_expired(self, update: Update, context: CallbackContext):
         assert isinstance(update, Update)
         assert update.effective_message
         assert update.effective_chat
         if update.callback_query:
-            update.callback_query.answer()
+            await update.callback_query.answer()
         self.edit_message_text(text=self._("Session expired. Please try again. (SE01)"),
                                chat_id=update.effective_chat.id,
                                message_id=update.effective_message.message_id)
@@ -564,24 +569,18 @@ class TelegramBotManager(LocaleMixin):
                 Telegram servers before actually starting to poll.
                 Default is False.
         """
-        # self.updater.start_polling(timeout=10)
-        # webhook_url = self.channel.config.get('webhook_url', '')
-        # port = self.channel.config.get('port', '')
-        # if webhook_url != '':
-        #     token = self.channel.config['token']
-        #     if not webhook_url.endswith('/'):
-        #         webhook_url += '/'
-        #     webhook_url += token
-        #     self.updater.start_webhook('127.0.0.1', port, token)
-        #     self.updater.bot.setWebhook(webhook_url=webhook_url)
-        # else:
-        #     self.updater.start_polling(timeout=10)
-
         if self.webhook:
             start_webhook = self.channel.config['webhook']['start_webhook']
-            self.updater.start_webhook(**start_webhook)
+            self.application.run_webhook(**start_webhook)
+            # self.application.run_webhook(
+            #     listen="0.0.0.0",
+            #     port=PORT,
+            #     secret_token='ASecretTokenIHaveChangedByNow',
+            #     webhook_url="https://<appname>.herokuapp.com/"
+            # )
+
         else:
-            self.updater.start_polling(timeout=10, drop_pending_updates=drop_pending_updates)
+            self.application.run_polling(timeout=10, drop_pending_updates=drop_pending_updates)
 
     def graceful_stop(self):
         """Gracefully stop the bot"""

@@ -10,8 +10,8 @@ from pkg_resources import resource_filename
 import cjkwrap
 from ruamel.yaml import YAML
 from telegram import Bot, TelegramError
-from telegram.ext.filters import MessageFilter
-from telegram.ext import MessageHandler, Application
+from telegram.ext.filters import filters
+from telegram.ext import MessageHandler, Updater
 from telegram.utils.request import Request
 
 from ehforwarderbot import coordinator, utils
@@ -367,19 +367,22 @@ def setup_admins(data):
         if answer == prompt_yes:
             print(_("Starting ID bot..."), end="", flush=True)
 
-            application = Application.builder().token(data.data['token']).request_kwargs(data.data.get('request_kwargs', None)).build()
-            application.add_handler(
+            updater = Updater(token=data.data['token'],
+                              request_kwargs=data.data.get(
+                                  'request_kwargs', None),
+                              )
+            updater.application.add_handler(
                 MessageHandler(
-                    MessageFilter.all,
+                    filters.ALL,
                     lambda update, context:
-                    update.effective_message.reply_text(
+                    await update.effective_message.reply_text(
                         _("Your Telegram user ID is {id}.").format(
                             id=update.effective_user.id
                         )
                     )
                 )
             )
-            application.start_polling()
+            application.run_polling()
 
             print(_("OK"))
             print()
@@ -393,7 +396,7 @@ def setup_admins(data):
             data.data['admins'] = input_admin_ids(default=data.data['admins'])
             print()
             print(_("Stopping ID bot..."), end="", flush=True)
-            application.stop()
+            updater.stop()
             print(_("OK"))
         else:
             data.data['admins'] = input_admin_ids(default=data.data['admins'])
