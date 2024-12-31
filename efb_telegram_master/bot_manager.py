@@ -159,7 +159,7 @@ class TelegramBotManager(LocaleMixin):
         #                                 request_kwargs=req_kwargs,
         #                                 )
         application = Application.builder().token(config['token']).build()
-
+        self.updater = application
         if isinstance(config.get('webhook'), dict):
             self.logger.debug("Setting up webhook...")
             self.webhook = True
@@ -171,13 +171,13 @@ class TelegramBotManager(LocaleMixin):
         self.me: User = me
         self.logger.debug("Connection to Telegram bot API is OK...")
         self.admins: List[int] = config['admins']
-        self.application: Application = application
+        self.dispatcher: Application = self.updater.dispatcher
         self.logger.debug("Adding base applications...")
         # New whitelist handler
         whitelist_filter = ~filters.User(user_id=self.admins)
-        self.application.add_handler(
+        self.dispatcher.add_handler(
             MessageHandler(whitelist_filter, lambda update, context: ...))
-        self.application.add_handler(LocaleHandler(channel))
+        self.dispatcher.add_handler(LocaleHandler(channel))
         self.Decorators.enable_retry = channel.flag('retry_on_error')
         self.logger.debug("Base applications added...")
 
