@@ -171,7 +171,7 @@ class TelegramBotManager(LocaleMixin):
         self.me: User = me
         self.logger.debug("Connection to Telegram bot API is OK...")
         self.admins: List[int] = config['admins']
-        self.dispatcher: Application = self.updater.dispatcher
+        self.dispatcher: Application = self.updater
         self.logger.debug("Adding base applications...")
         # New whitelist handler
         whitelist_filter = ~filters.User(user_id=self.admins)
